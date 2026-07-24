@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9Router Model Fetcher & Converter</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .subtitle {
+            color: #8b949e;
+            font-size: 0.8rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .field { margin-bottom: 1rem; }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: #c9d1d9;
+        }
+
+        input {
+            width: 100%;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+            color: #e6edf3;
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        input:focus { border-color: #58a6ff; }
+
+        input::placeholder { color: #484f58; }
+
+        .hint {
+            font-size: 0.7rem;
+            color: #8b949e;
+            margin-top: 0.25rem;
+        }
+
+        .row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .row .field { flex: 1; }
+
+        button {
+            width: 100%;
+            padding: 0.7rem;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid #238636;
+            border-radius: 6px;
+            background: #238636;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-top: 0.5rem;
+        }
+
+        button:hover { background: #2ea043; }
+        button:disabled {
+            background: #21262d;
+            border-color: #30363d;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            display: none;
+        }
+
+        .status.ok { display: block; background: #0d2818; border: 1px solid #238636; color: #3fb950; }
+        .status.err { display: block; background: #2d1117; border: 1px solid #da3633; color: #f85149; }
+        .status.info { display: block; background: #0c2d6b; border: 1px solid #1f6feb; color: #58a6ff; }
+
+        .preview {
+            margin-top: 1rem;
+            max-height: 250px;
+            overflow: auto;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.75rem;
+            color: #8b949e;
+            display: none;
+            white-space: pre;
+        }
+
+        .preview.show { display: block; }
+
+        .actions {
+            margin-top: 0.75rem;
+            display: none;
+            gap: 0.5rem;
+        }
+
+        .actions.show { display: flex; }
+
+        .btn-secondary {
+            flex: 1;
+            background: #21262d;
+            border-color: #30363d;
+            color: #c9d1d9;
+            margin-top: 0;
+        }
+
+        .btn-secondary:hover { background: #30363d; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.4rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>9Router Model Fetcher</h1>
+        <p class="subtitle">Fetch models from 9Router and convert to chatLanguageModels.json</p>
+
+        <div class="field">
+            <label for="apiUrl">API_URL</label>
+            <input type="text" id="apiUrl" value="http://localhost:20128/v1/models"
+                   placeholder="http://localhost:20128/v1/models">
+            <div class="hint">9Router model list endpoint</div>
+        </div>
+
+        <div class="row">
+            <div class="field">
+                <label for="token">TOKEN</label>
+                <input type="password" id="token" placeholder="sk-xxxxx">
+            </div>
+            <div class="field">
+                <label for="outputFile">OUTPUT_FILE</label>
+                <input type="text" id="outputFile" value="chatLanguageModels.json">
+            </div>
+        </div>
+
+        <button id="fetchBtn" onclick="run()">Fetch & Convert</button>
+
+        <div id="status" class="status"></div>
+        <div id="preview" class="preview"></div>
+
+        <div id="actions" class="actions">
+            <button class="btn-secondary" onclick="download()">Download JSON</button>
+            <button class="btn-secondary" onclick="copyToClipboard()">Copy</button>
+        </div>
+    </div>
+
+<script>
+const EXAMPLE_IDS = new Set(['all','plan','code','fix','secure','image','doc','agent','dhl/dahono/ai-chat']);
+
+const EXAMPLE_MODELS = [
+    {id:'all',  name:'All Providers', url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'plan', name:'Planning',      url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'code', name:'Coding',        url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'fix',  name:'Fix Refactor',  url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'secure',name:'Security',     url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'image', name:'Image',        url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'doc',  name:'Docs',          url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'agent', name:'Agent',        url:'', toolCalling:true, vision:true, maxInputTokens:24000, maxOutputTokens:24000},
+    {id:'dhl/dahono/ai-chat', name:'dahono/ai-chat', url:'', toolCalling:true, vision:true, maxInputTokens:200000, maxOutputTokens:64000}
+];
+
+let lastResult = null;
+
+function status(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status ' + type;
+}
+
+function buildEndpoint(apiUrl) {
+    const base = apiUrl.replace(/\/+$/, '');
+    if (base.endsWith('/models')) return base;
+    return base + '/v1/models';
+}
+
+function convertModels(raw, baseUrl) {
+    const modelsUrl = baseUrl.replace(/\/models\/?$/, '').replace(/\/+$/, '') + '/v1';
+
+    const models = EXAMPLE_MODELS.map(m => ({...m, url: modelsUrl}));
+    let added = 0, skipped = 0;
+
+    for (const model of (raw.data || [])) {
+        const mid = model.id || '';
+        if (EXAMPLE_IDS.has(mid)) { skipped++; continue; }
+
+        const cap = model.capabilities || {};
+        models.push({
+            id: mid,
+            name: mid,
+            url: modelsUrl,
+            toolCalling: !!cap.tools,
+            vision: !!cap.vision,
+            maxInputTokens: cap.contextWindow || 128000,
+            maxOutputTokens: cap.maxOutput || 64000
+        });
+        added++;
+    }
+
+    return {
+        result: [{
+            name: '9Router',
+            vendor: 'customendpoint',
+            apiKey: '${input:chat.lm.secret.-65d90303}',
+            apiType: 'chat-completions',
+            models
+        }],
+        added,
+        skipped,
+        total: models.length
+    };
+}
+
+async function run() {
+    const btn = document.getElementById('fetchBtn');
+    const apiUrl = document.getElementById('apiUrl').value.trim();
+    const token = document.getElementById('token').value.trim();
+    const outFile = document.getElementById('outputFile').value.trim() || 'chatLanguageModels.json';
+
+    if (!apiUrl) { status('API_URL is required.', 'err'); return; }
+    if (!token) { status('TOKEN is required.', 'err'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Fetching...';
+    document.getElementById('preview').className = 'preview';
+    document.getElementById('actions').className = 'actions';
+
+    const endpoint = buildEndpoint(apiUrl);
+
+    try {
+        const resp = await fetch(endpoint, {
+            headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+        });
+
+        if (!resp.ok) {
+            const body = await resp.text().catch(() => '');
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}\n${body}`);
+        }
+
+        const raw = await resp.json();
+
+        if (raw.object !== 'list') throw new Error('Invalid response: expected object="list", got "' + (raw.object || 'missing') + '"');
+
+        const { result, added, skipped, total } = convertModels(raw, apiUrl);
+        lastResult = result;
+
+        status(
+            `Done! Total: ${total} | Example (kept): 9 | Fetched (added): ${added} | Duplicates skipped: ${skipped}`,
+            'ok'
+        );
+
+        const preview = document.getElementById('preview');
+        preview.textContent = JSON.stringify(result, null, '\t');
+        preview.className = 'preview show';
+
+        document.getElementById('actions').className = 'actions show';
+
+    } catch (e) {
+        lastResult = null;
+        let msg = e.message || String(e);
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
+            msg += '\n\nTip: Server must enable CORS (Access-Control-Allow-Origin: *).';
+        }
+        status('ERROR: ' + msg, 'err');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Fetch & Convert';
+    }
+}
+
+function download() {
+    if (!lastResult) return;
+    const outFile = document.getElementById('outputFile').value.trim() || 'chatLanguageModels.json';
+    const blob = new Blob([JSON.stringify(lastResult, null, '\t')], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = outFile;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+async function copyToClipboard() {
+    if (!lastResult) return;
+    try {
+        await navigator.clipboard.writeText(JSON.stringify(lastResult, null, '\t'));
+        status('Copied to clipboard!', 'info');
+        setTimeout(() => {
+            const s = document.getElementById('status');
+            if (s.classList.contains('info')) s.className = 'status';
+        }, 2000);
+    } catch {
+        status('Copy failed. Select from preview manually.', 'err');
+    }
+}
+
+// Enter key triggers fetch
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('fetchBtn').disabled) run();
+});
+</script>
+</body>
+</html>
