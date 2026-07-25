@@ -185,10 +185,10 @@ function switchTab(tab) {
 async function runFetch() {
     const btn = $('fetchBtn');
     const apiUrl = $('apiUrl').value.trim();
-    const token = $('token').value.trim();
+    const apiKey = $('apiKeyValue').value.trim();
 
     if (!apiUrl) { setStatus('API_URL is required.', 'err'); return; }
-    if (!token) { setStatus('TOKEN is required.', 'err'); return; }
+    if (!apiKey) { setStatus('API_KEY is required.', 'err'); return; }
 
     const corsHint = $('corsHint');
     corsHint.classList.toggle('hidden', !isMixedContent(apiUrl));
@@ -203,7 +203,7 @@ async function runFetch() {
 
     try {
         const resp = await fetch(endpoint, {
-            headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+            headers: { 'Authorization': 'Bearer ' + apiKey, 'Accept': 'application/json' }
         });
 
         const ct = (resp.headers.get('content-type') || '').toLowerCase();
@@ -234,7 +234,7 @@ async function runFetch() {
         try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON.'); }
         if (raw.object !== 'list') throw new Error('Invalid response: expected object="list", got "' + (raw.object || 'missing') + '"');
 
-        const { result, total } = convertModels(raw, modelsUrl, $('providerName').value.trim(), $('apiKeyValue').value.trim());
+        const { result, total } = convertModels(raw, modelsUrl, $('providerName').value.trim(), apiKey);
         showResult(result, total);
 
     } catch (e) {
@@ -308,7 +308,7 @@ async function downloadScript(file) {
 
         // Always inject from form
         const apiUrl = $('apiUrl').value.trim() || 'http://localhost:20128/v1/models';
-        const token = $('token').value.trim();
+        const apiKey = $('apiKeyValue').value.trim();
         const outputFile = $('outputFile').value.trim() || 'chatLanguageModels.json';
 
         // Replace API URL
@@ -323,10 +323,10 @@ async function downloadScript(file) {
         content = content.replace(/"name": "9Router"/g, '"name": "' + providerName.replace(/"/g, '\\"') + '"');
 
         // Inject API key into output scripts
-        const apiKey = $('apiKeyValue').value.trim() || '${input:chat.lm.secret.-65d90303}';
-        content = content.replace(/DEFAULT_TOKEN = ""/, 'DEFAULT_TOKEN = "' + token.replace(/"/g, '\\"') + '"');
-        content = content.replace(/DEFAULT_API_KEY = "\\?\$\{input:chat\.lm\.secret\.-65d90303\}"/g, 'DEFAULT_API_KEY = "' + apiKey.replace(/"/g, '\\"') + '"');
-        content = content.replace(/set "DEFAULT_TOKEN="/, 'set "DEFAULT_TOKEN=' + token.replace(/"/g, '""') + '"');
+        const scriptApiKey = apiKey || '${input:chat.lm.secret.-65d90303}';
+        content = content.replace(/DEFAULT_TOKEN = ""/, 'DEFAULT_TOKEN = "' + apiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/DEFAULT_API_KEY = "\\?\$\{input:chat\.lm\.secret\.-65d90303\}"/g, 'DEFAULT_API_KEY = "' + scriptApiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/set "DEFAULT_TOKEN="/, 'set "DEFAULT_TOKEN=' + apiKey.replace(/"/g, '""') + '"');
 
         // Replace output filename
         if (outputFile !== 'chatLanguageModels.json') {

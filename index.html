@@ -30,13 +30,9 @@
             </div>
             <div class="row">
                 <div class="field">
-                    <label for="token"><span class="material-symbols-outlined label-icon">key</span> TOKEN</label>
-                    <input type="password" id="token" placeholder="sk-xxxxx">
-                </div>
-                <div class="field">
                     <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API_KEY</label>
                     <div class="input-row">
-                        <input type="password" id="apiKeyValue" placeholder="${input:chat.lm.secret.-65d90303}">
+                        <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
                         <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
                     </div>
                 </div>
