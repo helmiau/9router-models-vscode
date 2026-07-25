@@ -102,12 +102,11 @@ body {
 
 /* --- Theme toggle --- */
 .theme-toggle {
-    position: fixed; top: var(--spacing-4); right: var(--spacing-4);
-    width: 36px; height: 36px; border-radius: var(--radius-full);
+    margin-left: auto; width: 28px; height: 28px; border-radius: var(--radius-full);
     border: 1px solid var(--color-border); background: var(--color-bg-surface);
     color: var(--color-text-secondary); cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    z-index: 100; padding: 0; margin: 0;
+    padding: 0; flex-shrink: 0;
     transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .theme-toggle:hover { background: var(--color-accent-muted); color: var(--color-text-primary); }
@@ -137,7 +136,7 @@ body.light .theme-toggle .icon-light { display: inline; }
     width: 0; min-width: 0; opacity: 0; overflow: hidden; border: none;
 }
 .expand-btn {
-    position: fixed; top: var(--spacing-4); right: 60px;
+    position: fixed; top: var(--spacing-4); right: var(--spacing-4);
     width: 32px; height: 32px; border-radius: var(--radius-full);
     border: 1px solid var(--color-border); background: var(--color-bg-surface);
     color: var(--color-text-secondary); cursor: pointer;

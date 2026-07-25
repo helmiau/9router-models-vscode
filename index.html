@@ -9,15 +9,11 @@
     <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
-        <span class="material-symbols-outlined icon-dark">dark_mode</span>
-        <span class="material-symbols-outlined icon-light">light_mode</span>
-    </button>
     <div class="app-layout">
         <!-- LEFT: Form -->
         <div class="main-panel" id="mainPanel">
             <div class="container">
-                <h1><span class="material-symbols-outlined">mobile_code</span> VSCode Modelator</h1>
+                <h1><span class="material-symbols-outlined">mobile_code</span> VSCode Modelator <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode"><span class="material-symbols-outlined icon-dark">dark_mode</span><span class="material-symbols-outlined icon-light">light_mode</span></button></h1>
                 <p class="subtitle">Bridge your OpenAI compatible models to Visual Studio Code custom models.</p>
                 <div class="tabs">
                     <button id="tabFetch" class="active" onclick="switchTab('fetch')"><span class="material-symbols-outlined tab-icon">bolt</span> Fetch from API</button>
