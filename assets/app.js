@@ -95,20 +95,31 @@ function convertModels(raw, modelsUrl, providerName, apiKey) {
     const models = [];
     const seen = new Set();
 
+    // First pass: find max contextWindow and maxOutput from non-combo models
+    let maxInput = 128000, maxOutput = 64000;
+    for (const model of (raw.data || [])) {
+        if (model.owned_by === 'combo') continue;
+        const cap = model.capabilities || {};
+        if (cap.contextWindow && cap.contextWindow > maxInput) maxInput = cap.contextWindow;
+        if (cap.maxOutput && cap.maxOutput > maxOutput) maxOutput = cap.maxOutput;
+    }
+
+    // Second pass: build model list, combo models get max values + full capabilities
     for (const model of (raw.data || [])) {
         const mid = model.id || '';
         if (seen.has(mid)) continue;
         seen.add(mid);
 
+        const isCombo = model.owned_by === 'combo';
         const cap = model.capabilities || {};
         models.push({
             id: mid,
             name: mid,
             url: modelsUrl,
-            toolCalling: !!cap.tools,
-            vision: !!cap.vision,
-            maxInputTokens: cap.contextWindow || 128000,
-            maxOutputTokens: cap.maxOutput || 64000
+            toolCalling: isCombo ? true : !!cap.tools,
+            vision: isCombo ? true : !!cap.vision,
+            maxInputTokens: isCombo ? maxInput : (cap.contextWindow || 128000),
+            maxOutputTokens: isCombo ? maxOutput : (cap.maxOutput || 64000)
         });
     }
 

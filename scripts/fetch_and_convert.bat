@@ -24,13 +24,19 @@ echo Fetch OK. Converting...
 > "%PY_TEMP%" echo import json, sys
 >> "%PY_TEMP%" echo raw = json.load(open(sys.argv[1],"r",encoding="utf-8"))
 >> "%PY_TEMP%" echo DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
->> "%PY_TEMP%" echo models = []; seen = set()
+>> "%PY_TEMP%" echo models=[]; seen=set(); mx_i=128000; mx_o=64000
 >> "%PY_TEMP%" echo for m in raw.get("data",[]):
->> "%PY_TEMP%" echo     mid = m.get("id","")
+>> "%PY_TEMP%" echo     if m.get("owned_by")=="combo": continue
+>> "%PY_TEMP%" echo     c=m.get("capabilities") or {}
+>> "%PY_TEMP%" echo     if c.get("contextWindow",0)>mx_i: mx_i=c["contextWindow"]
+>> "%PY_TEMP%" echo     if c.get("maxOutput",0)>mx_o: mx_o=c["maxOutput"]
+>> "%PY_TEMP%" echo for m in raw.get("data",[]):
+>> "%PY_TEMP%" echo     mid=m.get("id",""); 
 >> "%PY_TEMP%" echo     if mid in seen: continue
 >> "%PY_TEMP%" echo     seen.add(mid)
->> "%PY_TEMP%" echo     cap = m.get("capabilities") or {}
->> "%PY_TEMP%" echo     models.append({"id":mid,"name":mid,"url":"http://localhost:20128/v1","toolCalling":bool(cap.get("tools")),"vision":bool(cap.get("vision")),"maxInputTokens":cap.get("contextWindow",128000),"maxOutputTokens":cap.get("maxOutput",64000)})
+>> "%PY_TEMP%" echo     ic=m.get("owned_by")=="combo"
+>> "%PY_TEMP%" echo     c=m.get("capabilities") or {}
+>> "%PY_TEMP%" echo     models.append({"id":mid,"name":mid,"url":"http://localhost:20128/v1","toolCalling":True if ic else bool(c.get("tools")),"vision":True if ic else bool(c.get("vision")),"maxInputTokens":mx_i if ic else c.get("contextWindow",128000),"maxOutputTokens":mx_o if ic else c.get("maxOutput",64000)})
 >> "%PY_TEMP%" echo R = [{"name":"9Router","vendor":"customendpoint","apiKey":DEFAULT_API_KEY,"apiType":"chat-completions","models":models}]
 >> "%PY_TEMP%" echo json.dump(R, open(sys.argv[2],"w",encoding="utf-8"), indent="\t", ensure_ascii=False)
 >> "%PY_TEMP%" echo print(f"Done! Total: {len(models)} models")

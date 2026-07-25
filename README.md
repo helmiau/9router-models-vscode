@@ -14,7 +14,7 @@ Fetch models from any OpenAI-compatible endpoint (`/v1/models`) and convert them
 | **OpenAI** | `https://api.openai.com/v1/models` | GPT-4o, o1, etc. |
 | **Any compatible** | `https://domain.com/v1/models` | Any endpoint exposing `/v1/models` |
 
-Any provider that implements the [OpenAI Models API](https://platform.openai.com/docs/api-reference/models/list) (`GET /v1/models`) works with ModelBridge.
+Any provider that implements the [OpenAI Models API](https://platform.openai.com/docs/api-reference/models/list) (`GET /v1/models`) works with VSCode Modelator.
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ python scripts/fetch_and_convert.py sk-your-api-key
 
 ```
 ┌──────────────────┐     GET /v1/models      ┌─────────────────────┐
-│  Any OpenAI-     │  ◄────────────────────►  │  ModelBridge        │
+│  Any OpenAI-     │  ◄────────────────────►  │  VSCode Modelator   │
 │  compatible API  │                          │  (Web UI / Script)  │
 └──────────────────┘                          └─────────┬───────────┘
                                                         │
@@ -130,7 +130,7 @@ python -m http.server 8080
 ## Project Structure
 
 ```
-modelbridge/
+vscode-modelator/
 ├── index.html              # Web UI entry point
 ├── assets/
 │   ├── style.css           # Astryx-inspired theme (light/dark)
