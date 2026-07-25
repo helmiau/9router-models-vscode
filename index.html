@@ -134,14 +134,41 @@
                 </div>
                 <div class="editor-content hidden" id="editorContent">
                     <div class="editor-toolbar">
-                        <span class="editor-lang-badge">JSON</span>
-                        <button class="editor-tool-btn" onclick="toggleEditMode()" title="Toggle edit mode"><span class="material-symbols-outlined" id="editModeIcon">edit</span></button>
+                        <div class="editor-toolbar-left">
+                            <button class="editor-view-btn" id="btnViewJson" onclick="switchView('json')" title="Code view"><span class="material-symbols-outlined">data_object</span><span class="editor-view-label">Code</span></button>
+                            <button class="editor-view-btn active" id="btnViewTree" onclick="switchView('tree')" title="Tree view"><span class="material-symbols-outlined">account_tree</span><span class="editor-view-label">Tree</span></button>
+                        </div>
                     </div>
-                    <div class="editor-code-wrap">
+                    <div class="editor-code-wrap" id="editorCodeWrap">
+                        <div class="code-controls" id="codeControls">
+                            <button class="editor-view-btn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)" id="editBtn"><span class="material-symbols-outlined" id="editModeIcon">edit</span><span class="editor-view-label" id="editModeLabel">Edit</span></button>
+                            <button class="editor-view-btn" onclick="beautifyJSON()" title="Format JSON (Shift+Alt+F)" id="beautifyBtn"><span class="material-symbols-outlined">auto_fix_high</span><span class="editor-view-label">Format</span></button>
+                            <button class="editor-view-btn" onclick="toggleFindBar()" title="Find & Replace (Ctrl+F)" id="findBtn"><span class="material-symbols-outlined">find_replace</span><span class="editor-view-label">Find</span></button>
+                        </div>
+                        <div class="find-bar hidden" id="findBar">
+                            <div class="find-row find-main-row">
+                                <span class="material-symbols-outlined find-icon">search</span>
+                                <input type="text" id="findInput" class="find-input" placeholder="Find" autocomplete="off" spellcheck="false">
+                                <span class="find-count" id="findCount"></span>
+                                <button class="find-btn" onclick="findPrev()" title="Previous (Shift+Enter)"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+                                <button class="find-btn" onclick="findNext()" title="Next (Enter)"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+                                <button class="find-btn" id="findRegexBtn" onclick="toggleFindOption('regex')" title="Regex (Alt+R)"><span class="find-opt-icon">.*</span></button>
+                                <button class="find-btn" id="findCaseBtn" onclick="toggleFindOption('case')" title="Match Case (Alt+C)"><span class="find-opt-icon">Aa</span></button>
+                                <button class="find-btn find-close" onclick="closeFindBar()" title="Close (Escape)"><span class="material-symbols-outlined">close</span></button>
+                            </div>
+                            <div class="find-row find-replace-row">
+                                <span class="material-symbols-outlined find-icon">swap_vert</span>
+                                <input type="text" id="findReplaceInput" class="find-input" placeholder="Replace" autocomplete="off" spellcheck="false">
+                                <button class="find-btn" onclick="findReplaceOne()" title="Replace"><span class="material-symbols-outlined">find_replace</span></button>
+                                <button class="find-btn" onclick="findReplaceAll()" title="Replace All"><span class="material-symbols-outlined">done_all</span></button>
+                            </div>
+                        </div>
                         <div class="line-numbers" id="lineNumbers"></div>
                         <pre class="editor-highlight" id="editorHighlight"><code id="highlightCode"></code></pre>
                         <textarea id="preview" class="editor-textarea hidden" spellcheck="false" aria-label="JSON editor"></textarea>
+                        <div class="autocomplete-dropdown hidden" id="autocompleteDropdown"></div>
                     </div>
+                    <div class="tree-view hidden" id="treeView"></div>
                     <div class="editor-cache-bar hidden" id="cacheBar">
                         <span id="cacheInfo">Cached locally</span>
                         <button class="editor-cache-clear" onclick="clearCache()"><span class="material-symbols-outlined">delete</span> Clear</button>
