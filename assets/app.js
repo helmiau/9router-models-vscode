@@ -17,6 +17,20 @@ function pasteField(id) {
     }).catch(() => {});
 }
 
+// --- Theme toggle ---
+
+function toggleTheme() {
+    const body = document.body;
+    body.classList.toggle('light');
+    localStorage.setItem('9router_theme', body.classList.contains('light') ? 'light' : 'dark');
+}
+
+// Apply saved theme on load
+(function() {
+    const saved = localStorage.getItem('9router_theme');
+    if (saved === 'light') document.body.classList.add('light');
+})();
+
 function setStatus(msg, type) {
     const el = $('status');
     el.textContent = msg;
@@ -187,8 +201,8 @@ async function runFetch() {
     const apiUrl = $('apiUrl').value.trim();
     const apiKey = $('apiKeyValue').value.trim();
 
-    if (!apiUrl) { setStatus('API_URL is required.', 'err'); return; }
-    if (!apiKey) { setStatus('API_KEY is required.', 'err'); return; }
+    if (!apiUrl) { setStatus('Endpoint is required.', 'err'); return; }
+    if (!apiKey) { setStatus('API Key / Token is required.', 'err'); return; }
 
     const corsHint = $('corsHint');
     corsHint.classList.toggle('hidden', !isMixedContent(apiUrl));
@@ -322,12 +336,12 @@ async function downloadScript(file) {
         content = content.replace(/"name":"9Router"/g, '"name":"' + providerName.replace(/"/g, '\\"') + '"');
         content = content.replace(/"name": "9Router"/g, '"name": "' + providerName.replace(/"/g, '\\"') + '"');
 
-        // Inject API key into output scripts (token=apikey, same value)
+        // Inject API key (unified: DEFAULT_API_KEY used for both auth and output)
         const scriptApiKey = apiKey || '${input:chat.lm.secret.-65d90303}';
-        content = content.replace(/DEFAULT_TOKEN = ""/, 'DEFAULT_TOKEN = "' + apiKey.replace(/"/g, '\\"') + '"');
-        content = content.replace(/DEFAULT_TOKEN=""/, 'DEFAULT_TOKEN="' + apiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/DEFAULT_API_KEY = ""/g, 'DEFAULT_API_KEY = "' + apiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/DEFAULT_API_KEY=""/g, 'DEFAULT_API_KEY="' + apiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/set "DEFAULT_API_KEY="/g, 'set "DEFAULT_API_KEY=' + apiKey.replace(/"/g, '""') + '"');
         content = content.replace(/DEFAULT_API_KEY = "\\?\$\{input:chat\.lm\.secret\.-65d90303\}"/g, 'DEFAULT_API_KEY = "' + scriptApiKey.replace(/"/g, '\\"') + '"');
-        content = content.replace(/set "DEFAULT_TOKEN="/, 'set "DEFAULT_TOKEN=' + apiKey.replace(/"/g, '""') + '"');
 
         // Replace output filename
         if (outputFile !== 'chatLanguageModels.json') {

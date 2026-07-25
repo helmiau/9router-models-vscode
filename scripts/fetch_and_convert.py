@@ -5,12 +5,12 @@ import sys, json, os, urllib.request, urllib.error
 API_URL = "http://localhost:20128/v1/models"
 OUTPUT_FILE = "chatLanguageModels.json"
 API_FILE = "api.txt"
-DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
+DEFAULT_API_KEY = ""
 
-# Token: DEFAULT_TOKEN (web form) > CLI arg > api.txt > prompt
-DEFAULT_TOKEN = ""
-if DEFAULT_TOKEN:
-    token = DEFAULT_TOKEN
+# Token: DEFAULT_API_KEY (web form) > CLI arg > api.txt > prompt
+# Used for both: auth header (fetch) and apiKey (output JSON)
+if DEFAULT_API_KEY:
+    token = DEFAULT_API_KEY
 elif len(sys.argv) >= 2:
     token = sys.argv[1]
 elif os.path.exists(API_FILE):
@@ -46,7 +46,7 @@ for m in raw.get("data", []):
         "maxOutputTokens":cap.get("maxOutput",64000)})
 
 result = [{"name":"9Router","vendor":"customendpoint",
-    "apiKey":DEFAULT_API_KEY,
+    "apiKey":DEFAULT_API_KEY or "${input:chat.lm.secret.-65d90303}",
     "apiType":"chat-completions","models":models}]
 with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
     json.dump(result, f, indent="\t", ensure_ascii=False)

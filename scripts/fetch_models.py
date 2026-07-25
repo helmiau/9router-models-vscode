@@ -6,10 +6,10 @@ API_URL = "http://localhost:20128/v1/models"
 OUTPUT = "models_raw.json"
 API_FILE = "api.txt"
 
-# Token: DEFAULT_TOKEN (web form) > CLI arg > api.txt > prompt
-DEFAULT_TOKEN = ""
-if DEFAULT_TOKEN:
-    token = DEFAULT_TOKEN
+# Token: DEFAULT_API_KEY (web form) > CLI arg > api.txt > prompt
+DEFAULT_API_KEY = ""
+if DEFAULT_API_KEY:
+    token = DEFAULT_API_KEY
 elif len(sys.argv) >= 2:
     token = sys.argv[1]
 elif os.path.exists(API_FILE):

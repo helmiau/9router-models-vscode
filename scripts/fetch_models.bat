@@ -4,8 +4,8 @@ setlocal EnableDelayedExpansion
 set "API_URL=http://localhost:20128/v1/models"
 set "OUTPUT=models_raw.json"
 set "API_FILE=api.txt"
-set "DEFAULT_TOKEN="
-if not "%DEFAULT_TOKEN%"=="" (set "TOKEN=%DEFAULT_TOKEN%" & goto :go)
+set "DEFAULT_API_KEY="
+if not "%DEFAULT_API_KEY%"=="" (set "TOKEN=%DEFAULT_API_KEY%" & goto :go)
 if not "%~1"=="" (set "TOKEN=%~1" & goto :go)
 if exist "%API_FILE%" (set /p TOKEN=<"%API_FILE%")
 if "!TOKEN!"=="" (

@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+        <span class="material-symbols-outlined icon-dark">dark_mode</span>
+        <span class="material-symbols-outlined icon-light">light_mode</span>
+    </button>
     <div class="container">
         <h1><span class="material-symbols-outlined">mobile_code</span> 9Router Model Fetcher</h1>
         <p class="subtitle">Fetch models from 9Router and convert to chatLanguageModels.json</p>
@@ -21,27 +25,27 @@
         <!-- FETCH MODE -->
         <div id="fetchPanel">
             <div class="field">
-                <label for="apiUrl"><span class="material-symbols-outlined label-icon">link</span> API_URL</label>
+                <label for="apiUrl"><span class="material-symbols-outlined label-icon">link</span> Endpoint</label>
                 <div class="input-row">
-                    <input type="text" id="apiUrl" placeholder="http://localhost:20128/v1/models">
+                    <input type="text" id="apiUrl" placeholder="http://localhost:20128/v1/models" autocomplete="off">
                     <button type="button" class="paste-btn" onclick="pasteField('apiUrl')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
                 </div>
                 <div class="hint">Accepts: localhost, 127.0.0.1, 0.0.0.0, custom domain, or Cloudflare tunnel URL</div>
             </div>
+            <div class="field">
+                <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+                <div class="input-row">
+                    <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
+                    <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                </div>
+            </div>
             <div class="row">
                 <div class="field">
-                    <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API_KEY</label>
-                    <div class="input-row">
-                        <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
-                        <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="providerName"><span class="material-symbols-outlined label-icon">badge</span> NAME</label>
+                    <label for="providerName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
                     <input type="text" id="providerName" value="9Router" placeholder="Provider name">
                 </div>
                 <div class="field">
-                    <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> OUTPUT_FILE</label>
+                    <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
                     <input type="text" id="outputFile" value="chatLanguageModels.json">
                 </div>
             </div>
@@ -70,20 +74,20 @@
                     <label for="fileUpload" class="upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop models_raw.json here</label>
                 </div>
             </div>
+            <div class="field">
+                <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+                <div class="input-row">
+                    <input type="password" id="pasteApiKey" placeholder="${input:chat.lm.secret.-65d90303}">
+                    <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                </div>
+            </div>
             <div class="row">
                 <div class="field">
-                    <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API_KEY</label>
-                    <div class="input-row">
-                        <input type="password" id="pasteApiKey" placeholder="${input:chat.lm.secret.-65d90303}">
-                        <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                    </div>
-                </div>
-                <div class="field">
-                    <label for="pasteProviderName"><span class="material-symbols-outlined label-icon">badge</span> NAME</label>
+                    <label for="pasteProviderName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
                     <input type="text" id="pasteProviderName" value="9Router" placeholder="Provider name">
                 </div>
                 <div class="field">
-                    <label for="pasteOutputFile"><span class="material-symbols-outlined label-icon">edit_note</span> OUTPUT_FILE</label>
+                    <label for="pasteOutputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
                     <input type="text" id="pasteOutputFile" value="chatLanguageModels.json">
                 </div>
                 <div class="field paste-convert-row">
