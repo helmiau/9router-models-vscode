@@ -322,9 +322,10 @@ async function downloadScript(file) {
         content = content.replace(/"name":"9Router"/g, '"name":"' + providerName.replace(/"/g, '\\"') + '"');
         content = content.replace(/"name": "9Router"/g, '"name": "' + providerName.replace(/"/g, '\\"') + '"');
 
-        // Inject API key into output scripts
+        // Inject API key into output scripts (token=apikey, same value)
         const scriptApiKey = apiKey || '${input:chat.lm.secret.-65d90303}';
         content = content.replace(/DEFAULT_TOKEN = ""/, 'DEFAULT_TOKEN = "' + apiKey.replace(/"/g, '\\"') + '"');
+        content = content.replace(/DEFAULT_TOKEN=""/, 'DEFAULT_TOKEN="' + apiKey.replace(/"/g, '\\"') + '"');
         content = content.replace(/DEFAULT_API_KEY = "\\?\$\{input:chat\.lm\.secret\.-65d90303\}"/g, 'DEFAULT_API_KEY = "' + scriptApiKey.replace(/"/g, '\\"') + '"');
         content = content.replace(/set "DEFAULT_TOKEN="/, 'set "DEFAULT_TOKEN=' + apiKey.replace(/"/g, '""') + '"');
 
