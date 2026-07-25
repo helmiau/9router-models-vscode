@@ -175,6 +175,16 @@ input:focus, textarea:focus { border-color: var(--color-blue); }
 .row .field { flex: 1; }
 
 /* --- Paste button --- */
+.copy-btn {
+    width: auto; height: var(--size-element-md); padding: 0 var(--spacing-3);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--color-border); border-left: none;
+    border-radius: 0; background: var(--color-bg-card); color: var(--color-text-secondary);
+    cursor: pointer; font-size: 1rem; margin-top: 0;
+    transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.copy-btn:hover { background: var(--color-overlay-hover); color: var(--color-blue); }
+.copy-btn .material-symbols-outlined { font-size: 1.1rem; }
 .paste-btn {
     width: auto; height: var(--size-element-md); padding: 0 var(--spacing-3);
     display: flex; align-items: center; justify-content: center;
@@ -229,7 +239,7 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
 }
 .endpoint-row-num {
     font-size: 0.6875rem; font-weight: 600; color: var(--color-blue);
-    background: var(--color-blue-muted); padding: 1px 8px; border-radius: var(--radius-full);
+    background: var(--color-blue-muted); padding: 3px 10px; border-radius: var(--radius-full);
     display: flex; align-items: center; gap: 4px;
 }
 .endpoint-row-num .material-symbols-outlined { font-size: 0.85rem; }
@@ -247,6 +257,68 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
 .ep-status.ep-err { color: var(--color-error); }
 .ep-status.ep-loading .material-symbols-outlined { color: var(--color-orange); animation: spin 0.6s linear infinite; }
 .ep-status.ep-loading { color: var(--color-orange); }
+/* API Type combobox */
+.ep-apiType-wrap {
+    position: relative; width: 100%;
+}
+.ep-apiType-input-row {
+    display: flex; align-items: center; gap: 0;
+    height: var(--size-element-md);
+    background: var(--color-bg-card); border: 1px solid var(--color-border-emphasized);
+    border-radius: var(--radius-inner); overflow: hidden;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+}
+.ep-apiType-input-row:focus-within { border-color: var(--color-blue); }
+.ep-apiType-input-row input {
+    flex: 1; height: 100%; padding: 0 var(--spacing-3);
+    background: transparent; border: none; outline: none;
+    font-family: inherit; font-size: 0.8rem; color: var(--color-text-primary);
+    cursor: pointer;
+}
+.ep-apiType-input-row input::placeholder { color: var(--color-text-disabled); }
+.ep-apiType-toggle {
+    width: 32px; height: 100%; display: flex; align-items: center; justify-content: center;
+    background: transparent; border: none; cursor: pointer; color: var(--color-text-secondary);
+    border-left: 1px solid var(--color-border);
+    transition: background var(--duration-fast), color var(--duration-fast);
+}
+.ep-apiType-toggle:hover { background: var(--color-overlay-hover); color: var(--color-blue); }
+.ep-apiType-toggle .material-symbols-outlined {
+    font-size: 1.2rem; transition: transform var(--duration-fast); line-height: 1;
+    margin-top: -1px;
+}
+.ep-apiType-wrap.open .ep-apiType-toggle .material-symbols-outlined { transform: rotate(180deg); }
+.ep-apiType-dropdown {
+    position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 50;
+    background: var(--color-bg-card); border: 1px solid var(--color-border-emphasized);
+    border-radius: var(--radius-inner); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    max-height: 180px; overflow-y: auto; display: none;
+}
+.ep-apiType-wrap.open .ep-apiType-dropdown { display: block; }
+.ep-apiType-opt {
+    display: flex; align-items: center; gap: var(--spacing-2);
+    padding: 6px var(--spacing-3); cursor: pointer; font-size: 0.8rem;
+    color: var(--color-text-primary); transition: background var(--duration-fast);
+    user-select: none;
+}
+.ep-apiType-opt:hover, .ep-apiType-opt.active {
+    background: var(--color-overlay-hover);
+}
+.ep-apiType-opt.selected {
+    color: var(--color-blue); font-weight: 500;
+}
+.ep-apiType-opt-icon {
+    font-size: 1rem; color: var(--color-text-secondary); flex-shrink: 0;
+}
+.ep-apiType-opt.selected .ep-apiType-opt-icon { color: var(--color-blue); }
+.ep-apiType-opt-label { flex: 1; }
+.ep-apiType-opt-val {
+    font-size: 0.65rem; color: var(--color-text-disabled); font-family: 'SF Mono', 'Consolas', monospace;
+}
+.ep-apiType-opt.no-match {
+    color: var(--color-text-disabled); font-style: italic; cursor: default;
+}
+.ep-apiType-opt.no-match:hover { background: transparent; }
 .add-endpoint-btn {
     width: 100%; height: auto; padding: var(--spacing-2);
     font-size: 0.78rem; background: transparent;

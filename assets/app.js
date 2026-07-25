@@ -24,6 +24,16 @@ function pasteField(id) {
     }).catch(() => { log('warn', 'Clipboard access denied'); });
 }
 
+function copyField(id) {
+    const el = $(id);
+    if (!el) return;
+    const text = el.value;
+    if (!text) { log('warn', 'Nothing to copy'); return; }
+    navigator.clipboard.writeText(text).then(() => {
+        log('info', `Copied from #${id}`);
+    }).catch(() => { log('warn', 'Clipboard access denied'); });
+}
+
 // --- Logging ---
 
 function log(type, msg) {
@@ -847,6 +857,7 @@ function getEndpointData() {
             name: row.querySelector('.ep-name')?.value?.trim() || '',
             url: row.querySelector('.ep-url')?.value?.trim() || '',
             key: row.querySelector('.ep-key')?.value?.trim() || '',
+            apiType: row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions',
         });
     });
     return data;
@@ -857,9 +868,10 @@ function saveEndpoints() {
     try { localStorage.setItem(EP_CACHE_KEY, JSON.stringify(data)); } catch {}
 }
 
-function addEndpoint(name, url, key) {
+function addEndpoint(name, url, key, apiType) {
     endpointIdCounter++;
     const id = endpointIdCounter;
+    const at = apiType || 'chat-completions';
     const row = document.createElement('div');
     row.className = 'endpoint-row';
     row.dataset.id = id;
@@ -875,12 +887,15 @@ function addEndpoint(name, url, key) {
             <label><span class="material-symbols-outlined label-icon">badge</span> Endpoint Name</label>
             <div class="input-row">
                 <input type="text" class="ep-name" value="${escHtml(name || '9Router')}" placeholder="Provider name">
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
         </div>
         <div class="field">
             <label><span class="material-symbols-outlined label-icon">link</span> Endpoint URL</label>
             <div class="input-row">
                 <input type="text" class="ep-url" value="${escHtml(url || '')}" placeholder="http://localhost:20128/v1/models">
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                 <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
         </div>
@@ -888,7 +903,18 @@ function addEndpoint(name, url, key) {
             <label><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
             <div class="input-row">
                 <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx or \${input:chat.lm.secret.-65d90303}">
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                 <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+            </div>
+        </div>
+        <div class="field">
+            <label><span class="material-symbols-outlined label-icon">api</span> API Type</label>
+            <div class="ep-apiType-wrap" data-value="${escHtml(at)}">
+                <div class="ep-apiType-input-row">
+                    <input type="text" class="ep-apiType-text" value="${escHtml(at === 'chat-completions' ? 'Chat Completions' : at === 'responses' ? 'Responses' : 'Messages')}" placeholder="Select API type" readonly autocomplete="off" spellcheck="false">
+                    <button type="button" class="ep-apiType-toggle" tabindex="-1"><span class="material-symbols-outlined">expand_more</span></button>
+                </div>
+                <div class="ep-apiType-dropdown"></div>
             </div>
         </div>
         <div class="ep-status" id="epStatus${id}"></div>
@@ -896,9 +922,13 @@ function addEndpoint(name, url, key) {
     // Assign unique IDs for paste targets
     row.querySelector('.ep-url').id = `epUrl_${id}`;
     row.querySelector('.ep-key').id = `epKey_${id}`;
+    row.querySelector('.ep-name').id = `epName_${id}`;
 
     // Listen for changes to save
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', saveEndpoints));
+
+    // Init API Type combobox
+    initApiTypeCombobox(row);
 
     $('endpointList').appendChild(row);
     saveEndpoints();
@@ -933,6 +963,144 @@ function setEndpointStatus(id, type, msg) {
     el.innerHTML = type === 'idle' ? '' : `<span class="material-symbols-outlined">${icons[type] || ''}</span> ${escHtml(msg)}`;
 }
 
+// --- API Type Combobox ---
+
+const API_TYPE_OPTIONS = [
+    { value: 'chat-completions', label: 'Chat Completions', icon: 'chat', desc: '/v1/chat/completions' },
+    { value: 'responses', label: 'Responses', icon: 'smart_toy', desc: '/v1/responses' },
+    { value: 'messages', label: 'Messages', icon: 'forum', desc: '/v1/messages' },
+];
+
+function initApiTypeCombobox(row) {
+    const wrap = row.querySelector('.ep-apiType-wrap');
+    if (!wrap) return;
+    const inputRow = wrap.querySelector('.ep-apiType-input-row');
+    const input = wrap.querySelector('.ep-apiType-text');
+    const toggle = wrap.querySelector('.ep-apiType-toggle');
+    const dropdown = wrap.querySelector('.ep-apiType-dropdown');
+    let activeIdx = -1;
+    let blurTimer = null;
+
+    function renderOptions(filter) {
+        const q = (filter || '').toLowerCase();
+        let html = '';
+        let idx = 0;
+        API_TYPE_OPTIONS.forEach(opt => {
+            if (q && !opt.label.toLowerCase().includes(q) && !opt.value.toLowerCase().includes(q)) return;
+            const sel = wrap.dataset.value === opt.value;
+            html += `<div class="ep-apiType-opt${sel ? ' selected' : ''}" data-val="${opt.value}" data-idx="${idx}">` +
+                `<span class="material-symbols-outlined ep-apiType-opt-icon">${opt.icon}</span>` +
+                `<span class="ep-apiType-opt-label">${opt.label}</span>` +
+                `<span class="ep-apiType-opt-val">${opt.desc}</span></div>`;
+            idx++;
+        });
+        if (!html) html = `<div class="ep-apiType-opt no-match">No match</div>`;
+        dropdown.innerHTML = html;
+        // Bind clicks
+        dropdown.querySelectorAll('.ep-apiType-opt:not(.no-match)').forEach(el => {
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                selectOption(el.dataset.val);
+            });
+        });
+    }
+
+    function selectOption(val) {
+        const opt = API_TYPE_OPTIONS.find(o => o.value === val);
+        if (!opt) return;
+        wrap.dataset.value = val;
+        input.value = opt.label;
+        close();
+        saveEndpoints();
+    }
+
+    function open() {
+        clearTimeout(blurTimer);
+        renderOptions('');
+        activeIdx = -1;
+        wrap.classList.add('open');
+        input.removeAttribute('readonly');
+        input.value = '';
+        input.focus();
+    }
+
+    function close() {
+        wrap.classList.remove('open');
+        input.setAttribute('readonly', '');
+        const cur = API_TYPE_OPTIONS.find(o => o.value === wrap.dataset.value);
+        input.value = cur ? cur.label : wrap.dataset.value;
+    }
+
+    function isOpen() { return wrap.classList.contains('open'); }
+
+    function moveActive(dir) {
+        const items = dropdown.querySelectorAll('.ep-apiType-opt:not(.no-match)');
+        if (!items.length) return;
+        items.forEach(el => el.classList.remove('active'));
+        activeIdx = (activeIdx + dir + items.length) % items.length;
+        items[activeIdx].classList.add('active');
+        items[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    toggle.addEventListener('mousedown', e => {
+        e.preventDefault();
+        isOpen() ? close() : open();
+    });
+
+    input.addEventListener('mousedown', e => {
+        e.preventDefault();
+        isOpen() ? close() : open();
+    });
+
+    input.addEventListener('input', () => {
+        renderOptions(input.value);
+        activeIdx = -1;
+    });
+
+    input.addEventListener('keydown', e => {
+        if (!isOpen()) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+            }
+            return;
+        }
+        switch (e.key) {
+            case 'ArrowDown': e.preventDefault(); moveActive(1); break;
+            case 'ArrowUp': e.preventDefault(); moveActive(-1); break;
+            case 'Enter': {
+                e.preventDefault();
+                e.stopPropagation();
+                const items = dropdown.querySelectorAll('.ep-apiType-opt:not(.no-match)');
+                if (activeIdx >= 0 && activeIdx < items.length) {
+                    selectOption(items[activeIdx].dataset.val);
+                }
+                break;
+            }
+            case 'Escape': e.preventDefault(); e.stopPropagation(); close(); break;
+            case 'Tab': close(); break;
+        }
+    });
+
+    input.addEventListener('blur', () => {
+        blurTimer = setTimeout(close, 150);
+    });
+
+    // Prevent dropdown clicks from blurring input
+    dropdown.addEventListener('mousedown', e => e.preventDefault());
+
+    // Document-level Escape to close any open combobox
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && isOpen()) {
+            e.preventDefault();
+            close();
+        }
+    }, true);
+
+    // Initial render
+    close();
+}
+
 function loadEndpoints() {
     try {
         const raw = localStorage.getItem(EP_CACHE_KEY);
@@ -941,7 +1109,7 @@ function loadEndpoints() {
         if (!Array.isArray(data) || data.length === 0) {
             addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
         } else {
-            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key));
+            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.apiType));
         }
     } catch {
         addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
@@ -950,7 +1118,7 @@ function loadEndpoints() {
 
 // --- Core conversion ---
 
-function convertModels(raw, modelsUrl, providerName, apiKey) {
+function convertModels(raw, modelsUrl, providerName, apiKey, apiType) {
     const models = [];
     const seen = new Set();
 
@@ -985,7 +1153,7 @@ function convertModels(raw, modelsUrl, providerName, apiKey) {
             name: providerName || '9Router',
             vendor: 'customendpoint',
             apiKey: apiKey || '${input:chat.lm.secret.-65d90303}',
-            apiType: 'chat-completions',
+            apiType: apiType || 'chat-completions',
             models
         },
         total: models.length
@@ -1113,6 +1281,7 @@ async function fetchSingleEndpoint(id) {
     const name = row.querySelector('.ep-name')?.value?.trim() || '';
     const url = row.querySelector('.ep-url')?.value?.trim() || '';
     const key = row.querySelector('.ep-key')?.value?.trim() || '';
+    const apiType = row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions';
 
     if (!url) { setEndpointStatus(id, 'err', 'Endpoint URL is required'); log('error', `Endpoint #${id}: URL required`); return; }
     if (!key) { setEndpointStatus(id, 'err', 'API Key is required'); log('error', `Endpoint #${id}: API Key required`); return; }
@@ -1146,7 +1315,7 @@ async function fetchSingleEndpoint(id) {
         setEndpointStatus(id, 'ok', `${modelCount} models received`);
         log('success', `Endpoint #${id} (${name || url}): ${modelCount} models`);
 
-        const { provider } = convertModels(raw, modelsUrl, name, key);
+        const { provider } = convertModels(raw, modelsUrl, name, key, apiType);
         return provider;
 
     } catch (e) {
