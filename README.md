@@ -6,13 +6,14 @@ Fetch models from any OpenAI-compatible endpoint (`/v1/models`) and convert them
 
 ## Supported Providers
 
-| Provider | Endpoint | Notes |
-|---|---|---|
-| **9Router** | `http://localhost:20128/v1/models` | Local AI router |
-| **OmniRoute** | `http://localhost:PORT/v1/models` | Multi-model router |
-| **CliproxyAPI** | `http://localhost:PORT/v1/models` | Proxy API |
-| **OpenAI** | `https://api.openai.com/v1/models` | GPT-4o, o1, etc. |
-| **Any compatible** | `https://domain.com/v1/models` | Any endpoint exposing `/v1/models` |
+> ⚠️ **Note:** This tool is currently being optimized for **9Router**. Other providers are supported but may require adjustments.
+
+| Provider | Source |
+|---|---|
+| **9Router** | [decolua/9router](https://github.com/decolua/9router) |
+| **OmniRoute** | [diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute) |
+| **CLIProxyAPI** | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
+| **OpenAI** | [OpenAI Platform](https://platform.openai.com/docs/api-reference/models/list) |
 
 Any provider that implements the [OpenAI Models API](https://platform.openai.com/docs/api-reference/models/list) (`GET /v1/models`) works with VSCode Modelator.
 
