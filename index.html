@@ -85,30 +85,7 @@
                         2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
                         3. Convert to <code>chatLanguageModels.json</code> → download or copy
                     </div>
-                    <div class="scripts-section">
-                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">download</span> Fetch Only → models_raw.json</div>
-                        <div class="script-grid">
-                            <button class="script-btn" onclick="downloadScript('fetch_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.py</button>
-                            <button class="script-btn" onclick="downloadScript('fetch_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.bat</button>
-                            <button class="script-btn" onclick="downloadScript('fetch_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.sh</button>
-                        </div>
-                    </div>
-                    <div class="scripts-section">
-                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">code</span> Convert Only → chatLanguageModels.json</div>
-                        <div class="script-grid">
-                            <button class="script-btn" onclick="downloadScript('convert_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.py</button>
-                            <button class="script-btn" onclick="downloadScript('convert_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.bat</button>
-                            <button class="script-btn" onclick="downloadScript('convert_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.sh</button>
-                        </div>
-                    </div>
-                    <div class="scripts-section">
-                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">bolt</span> Combined (fetch + convert)</div>
-                        <div class="script-grid">
-                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.py</button>
-                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.bat</button>
-                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.sh</button>
-                        </div>
-                    </div>
+                    <div class="scripts-panel" id="scriptsPanelInner"></div>
                 </div>
                 <div id="status" class="status"></div>
             </div>

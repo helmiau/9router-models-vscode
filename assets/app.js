@@ -1433,6 +1433,166 @@ async function copyToClipboard() {
 
 // --- Download scripts ---
 
+const SCRIPT_MODES = [
+    { key: 'fetch', icon: 'download', label: 'Fetch Only', desc: 'Fetches from /v1/models → models_raw.json', files: { windows: 'fetch_models.bat', macos: 'fetch_models.sh', linux: 'fetch_models.sh', python: 'fetch_models.py' } },
+    { key: 'convert', icon: 'code', label: 'Convert Only', desc: 'Converts models_raw.json → chatLanguageModels.json', files: { windows: 'convert_models.bat', macos: 'convert_models.sh', linux: 'convert_models.sh', python: 'convert_models.py' } },
+    { key: 'combined', icon: 'bolt', label: 'Combined', desc: 'Fetch + Convert in one step', files: { windows: 'fetch_and_convert.bat', macos: 'fetch_and_convert.sh', linux: 'fetch_and_convert.sh', python: 'fetch_and_convert.py' } },
+];
+
+const SCRIPT_PLATFORMS = [
+    { key: 'windows', icon: 'desktop_windows', label: 'Windows', ext: '.bat' },
+    { key: 'macos', icon: 'laptop_mac', label: 'macOS', ext: '.sh' },
+    { key: 'linux', icon: 'terminal', label: 'Linux', ext: '.sh' },
+    { key: 'python', icon: 'code', label: 'Python', ext: '.py' },
+];
+
+function detectOS() {
+    const ua = navigator.userAgent || '';
+    const pl = navigator.platform || '';
+    if (/win/i.test(pl) || /Win/i.test(ua)) return 'windows';
+    if (/mac/i.test(pl) || /Mac/i.test(ua)) return 'macos';
+    return 'linux';
+}
+
+let scriptState = { osSelected: new Set([detectOS()]), selected: new Set(['combined']) };
+
+function primaryOS() { return [...scriptState.osSelected][0] || detectOS(); }
+
+function initScriptPanel() {
+    const container = $('scriptsPanelInner');
+    if (!container) return;
+    const detected = SCRIPT_PLATFORMS.find(p => p.key === detectOS());
+
+    const osItems = SCRIPT_PLATFORMS.map(p => {
+        const active = scriptState.osSelected.has(p.key) ? ' active' : '';
+        return `<div class="scripts-os-item${active}" data-os="${p.key}" onclick="toggleScriptOS('${p.key}')">
+            <div class="scripts-mode-check"><span class="material-symbols-outlined">check</span></div>
+            <div class="scripts-os-icon"><span class="material-symbols-outlined">${p.icon}</span></div>
+            <div class="scripts-os-name">${p.label}</div>
+            <div class="scripts-os-ext">${p.ext}</div>
+        </div>`;
+    }).join('');
+
+    const pos = primaryOS();
+    const modeItems = SCRIPT_MODES.map(m => {
+        const active = scriptState.selected.has(m.key) ? ' active' : '';
+        const file = m.files[pos];
+        return `<div class="scripts-mode-item${active}" data-mode="${m.key}" onclick="toggleScriptMode('${m.key}')">
+            <div class="scripts-mode-check"><span class="material-symbols-outlined">check</span></div>
+            <div class="scripts-mode-icon"><span class="material-symbols-outlined">${m.icon}</span></div>
+            <div class="scripts-mode-info">
+                <div class="scripts-mode-name">${m.label}</div>
+                <div class="scripts-mode-desc">${m.desc}</div>
+            </div>
+            <div class="scripts-mode-file" data-file="${m.key}">${file}</div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="scripts-os-section">
+            <div class="scripts-os-header">
+                <div class="scripts-os-label"><span class="material-symbols-outlined">settings_suggest</span> Operating System</div>
+                <div class="scripts-os-detected"><span class="material-symbols-outlined">check_circle</span> Auto-detected: <strong>${detected ? detected.label : '—'}</strong></div>
+            </div>
+            <div class="scripts-os-items">${osItems}</div>
+            <div class="scripts-footer">
+                <div class="scripts-select-all" onclick="toggleSelectAllOS()">
+                    <span class="material-symbols-outlined" id="selectOsAllIcon">check_box</span>
+                    Select all
+                </div>
+                <span class="scripts-os-count" id="osCount"></span>
+            </div>
+        </div>
+        <div class="scripts-modes-section scripts-os-section">
+            <div class="scripts-os-header">
+                <div class="scripts-os-label"><span class="material-symbols-outlined">list</span> Script Mode</div>
+            </div>
+            ${modeItems}
+            <div class="scripts-footer">
+                <div class="scripts-select-all" onclick="toggleSelectAllModes()">
+                    <span class="material-symbols-outlined" id="selectAllIcon">check_box</span>
+                    Select all
+                </div>
+            </div>
+        </div>
+        <button type="button" class="scripts-dl-all-btn" id="scriptDlAllBtn" onclick="downloadSelectedScripts()" disabled>
+            <span class="material-symbols-outlined">download</span>
+            Download <span id="scriptDlCount">0</span>
+        </button>`;
+    updateScriptUI();
+}
+
+function toggleScriptOS(key) {
+    if (scriptState.osSelected.has(key)) scriptState.osSelected.delete(key);
+    else scriptState.osSelected.add(key);
+    updateScriptUI();
+}
+
+function toggleSelectAllOS() {
+    if (scriptState.osSelected.size === SCRIPT_PLATFORMS.length) scriptState.osSelected.clear();
+    else SCRIPT_PLATFORMS.forEach(p => scriptState.osSelected.add(p.key));
+    updateScriptUI();
+}
+
+function toggleScriptMode(key) {
+    if (scriptState.selected.has(key)) scriptState.selected.delete(key);
+    else scriptState.selected.add(key);
+    updateScriptUI();
+}
+
+function toggleSelectAllModes() {
+    if (scriptState.selected.size === SCRIPT_MODES.length) scriptState.selected.clear();
+    else SCRIPT_MODES.forEach(m => scriptState.selected.add(m.key));
+    updateScriptUI();
+}
+
+function updateScriptUI() {
+    const pos = primaryOS();
+    const osCount = scriptState.osSelected.size;
+    const modeCount = scriptState.selected.size;
+
+    // OS items
+    document.querySelectorAll('.scripts-os-item').forEach(el => {
+        el.classList.toggle('active', scriptState.osSelected.has(el.dataset.os));
+    });
+    const osAllIcon = $('selectOsAllIcon');
+    if (osAllIcon) {
+        osAllIcon.textContent = osCount === SCRIPT_PLATFORMS.length ? 'check_box' : osCount > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank';
+    }
+    const osCnt = $('osCount');
+    if (osCnt) osCnt.textContent = osCount > 1 ? osCount + ' selected' : '';
+
+    // Mode items
+    document.querySelectorAll('.scripts-mode-item').forEach(el => {
+        el.classList.toggle('active', scriptState.selected.has(el.dataset.mode));
+    });
+    document.querySelectorAll('.scripts-mode-file').forEach(el => {
+        const modeKey = el.dataset.file;
+        const m = SCRIPT_MODES.find(x => x.key === modeKey);
+        if (m) el.textContent = m.files[pos];
+    });
+    const modeAllIcon = $('selectAllIcon');
+    if (modeAllIcon) {
+        modeAllIcon.textContent = modeCount === SCRIPT_MODES.length ? 'check_box' : modeCount > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank';
+    }
+
+    // Download button: total = osCount × modeCount
+    const total = osCount * modeCount;
+    const btn = $('scriptDlAllBtn');
+    const cnt = $('scriptDlCount');
+    if (btn) btn.disabled = total === 0;
+    if (cnt) cnt.textContent = total;
+}
+
+function downloadSelectedScripts() {
+    const files = [];
+    SCRIPT_MODES.filter(m => scriptState.selected.has(m.key)).forEach(m => {
+        scriptState.osSelected.forEach(os => { files.push(m.files[os]); });
+    });
+    if (!files.length) return;
+    files.forEach((file, i) => { setTimeout(() => downloadScript(file), i * 150); });
+}
+
 async function downloadScript(file) {
     log('action', `Downloading script: ${file}`);
     try {
@@ -1596,4 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Restore cache
     loadCache();
+
+    // Init scripts panel
+    initScriptPanel();
 });
