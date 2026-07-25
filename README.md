@@ -27,7 +27,11 @@ Any provider that implements the [OpenAI Models API](https://platform.openai.com
 4. Click **Fetch All & Merge** — fetches all endpoints and merges into one output
 5. Copy or download `chatLanguageModels.json`
 
-Each endpoint row has individual controls:
+Each endpoint row has:
+- **Endpoint Name** — provider display name (with copy/paste buttons)
+- **Endpoint URL** — `/v1/models` endpoint (with copy/paste buttons)
+- **API Key / Token** — authentication key (with copy/paste buttons)
+- **API Type** — dropdown selector: Chat Completions / Responses / Messages
 - ⚡ **Fetch** — fetch models from this single endpoint
 - ✕ **Remove** — delete the endpoint row
 
@@ -88,14 +92,21 @@ python scripts/fetch_and_convert.py sk-your-api-key
 - **Multi-endpoint batch** — add unlimited endpoints, fetch & merge in one click
 - **Individual fetch** — fetch a single endpoint without affecting others
 - **Endpoint persistence** — configurations auto-saved to localStorage
+- **API Type selector** — smart combobox to choose `chat-completions`, `responses`, or `messages` with keyboard navigation and type-to-filter
 - **Web UI** — fetch, paste JSON, or upload `models_raw.json`
 - **Dynamic curl command** — auto-updates with your endpoint & key, one-click copy
-- **Clipboard paste** — paste API key, endpoint URL from clipboard
+- **Copy & Paste buttons** — one-click copy/paste for endpoint name, URL, and API key
 - **Downloadable scripts** — `.py`, `.bat`, `.sh` with your values pre-filled
 - **Light/Dark theme** — Astryx-inspired, toggle persists via localStorage
 - **Cache** — auto-saves last result, restore on reload
 - **Drag & drop upload** — drop `models_raw.json` directly
-- **Syntax-highlighted editor** — JSON output with color-coded keys, values, and brackets
+- **Tree view** — collapsible provider → models → model hierarchy (default view)
+- **Code view** — syntax-highlighted JSON editor with color-coded keys, values, and brackets
+- **Edit mode overlay** — edit JSON with live syntax highlighting (transparent textarea over colored highlight)
+- **Find & Replace** — full search bar with regex, case-sensitive, keyboard navigation (Ctrl+F)
+- **Format / Beautify** — one-click JSON formatting (Shift+Alt+F)
+- **Schema-aware autocomplete** — 17 JSON schema keys with dropdown and keyboard navigation (Tab)
+- **Keyboard shortcuts** — Ctrl+E (edit), Ctrl+F (find), Shift+Alt+F (format), Escape (close)
 - **Activity log** — timestamped log of all actions (fetch, convert, errors)
 - **Collapsible panels** — editor and log panels can be minimized/maximized
 
@@ -145,6 +156,29 @@ The output is an array of provider objects — one per endpoint:
 ### VS Code Secret Input
 
 Use `${input:chat.lm.secret.-65d90303}` as the `apiKey` value — VS Code will prompt you to enter the key securely at runtime.
+
+### API Type Options
+
+The `apiType` field determines which API endpoint format to use:
+
+| apiType | Label | Endpoint | Description |
+|---|---|---|---|
+| `chat-completions` | Chat Completions | `/v1/chat/completions` | Standard OpenAI chat format |
+| `responses` | Responses | `/v1/responses` | OpenAI responses API format |
+| `messages` | Messages | `/v1/messages` | Anthropic messages API format |
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+E` | Toggle edit mode |
+| `Ctrl+F` | Open find & replace |
+| `Shift+Alt+F` | Format / beautify JSON |
+| `Escape` | Close find bar / autocomplete |
+| `Tab` | Accept autocomplete suggestion (in edit mode) |
+| `↑` / `↓` | Navigate autocomplete / find matches |
+| `Enter` | Select autocomplete / find next |
+| `Shift+Enter` | Find previous |
 
 ## Installation
 
