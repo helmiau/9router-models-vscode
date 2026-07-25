@@ -87,6 +87,32 @@ input::placeholder { color: #484f58; }
 
 .row .field { flex: 1; }
 
+/* --- Input with paste button --- */
+
+.input-row {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+}
+.input-row input { flex: 1; border-radius: 6px 0 0 6px; }
+.paste-btn {
+    width: auto;
+    padding: 0 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #30363d;
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    background: #161b22;
+    color: #8b949e;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.15s, color 0.15s;
+}
+.paste-btn:hover { background: #21262d; color: #58a6ff; }
+.paste-btn .material-symbols-outlined { font-size: 1.1rem; }
+
 /* --- Buttons --- */
 
 button {

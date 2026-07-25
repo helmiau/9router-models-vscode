@@ -10,6 +10,7 @@ set "PYTEMP=_9r_convert_tmp.py"
 > "%PYTEMP%" echo import json, sys
 >> "%PYTEMP%" echo INPUT, OUTPUT = sys.argv[1], sys.argv[2]
 >> "%PYTEMP%" echo BASE = "http://localhost:20128/v1"
+>> "%PYTEMP%" echo DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
 >> "%PYTEMP%" echo raw = json.load(open(INPUT,"r",encoding="utf-8"))
 >> "%PYTEMP%" echo models = []; seen = set()
 >> "%PYTEMP%" echo for m in raw.get("data",[]):
@@ -18,7 +19,7 @@ set "PYTEMP=_9r_convert_tmp.py"
 >> "%PYTEMP%" echo     seen.add(mid)
 >> "%PYTEMP%" echo     cap = m.get("capabilities") or {}
 >> "%PYTEMP%" echo     models.append({"id":mid,"name":mid,"url":BASE,"toolCalling":bool(cap.get("tools")),"vision":bool(cap.get("vision")),"maxInputTokens":cap.get("contextWindow",128000),"maxOutputTokens":cap.get("maxOutput",64000)})
->> "%PYTEMP%" echo R = [{"name":"9Router","vendor":"customendpoint","apiKey":"${input:chat.lm.secret.-65d90303}","apiType":"chat-completions","models":models}]
+>> "%PYTEMP%" echo R = [{"name":"9Router","vendor":"customendpoint","apiKey":DEFAULT_API_KEY,"apiType":"chat-completions","models":models}]
 >> "%PYTEMP%" echo json.dump(R, open(OUTPUT,"w",encoding="utf-8"), indent="\t", ensure_ascii=False)
 >> "%PYTEMP%" echo print(f"Done! Total: {len(models)} models")
 python "%PYTEMP%" "%INPUT%" "%OUTPUT%"

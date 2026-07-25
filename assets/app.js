@@ -10,6 +10,13 @@ const CACHE_KEY = '9router_preview_cache';
 
 function $(id) { return document.getElementById(id); }
 
+function pasteField(id) {
+    navigator.clipboard.readText().then(text => {
+        $(id).value = text.trim();
+        $(id).dispatchEvent(new Event('input'));
+    }).catch(() => {});
+}
+
 function setStatus(msg, type) {
     const el = $('status');
     el.textContent = msg;
@@ -45,7 +52,7 @@ function isLocalhost(url) {
 
 // --- Core conversion ---
 
-function convertModels(raw, modelsUrl, providerName) {
+function convertModels(raw, modelsUrl, providerName, apiKey) {
     const models = [];
     const seen = new Set();
 
@@ -70,7 +77,7 @@ function convertModels(raw, modelsUrl, providerName) {
         result: [{
             name: providerName || '9Router',
             vendor: 'customendpoint',
-            apiKey: '${input:chat.lm.secret.-65d90303}',
+            apiKey: apiKey || '${input:chat.lm.secret.-65d90303}',
             apiType: 'chat-completions',
             models
         }],
@@ -227,7 +234,7 @@ async function runFetch() {
         try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON.'); }
         if (raw.object !== 'list') throw new Error('Invalid response: expected object="list", got "' + (raw.object || 'missing') + '"');
 
-        const { result, total } = convertModels(raw, modelsUrl, $('providerName').value.trim());
+        const { result, total } = convertModels(raw, modelsUrl, $('providerName').value.trim(), $('apiKeyValue').value.trim());
         showResult(result, total);
 
     } catch (e) {
@@ -262,7 +269,7 @@ function runPaste() {
 
     const apiUrl = $('apiUrl').value.trim() || 'http://localhost:20128';
     const modelsUrl = extractBaseUrl(apiUrl);
-    const { result, total } = convertModels(raw, modelsUrl, $('pasteProviderName').value.trim());
+    const { result, total } = convertModels(raw, modelsUrl, $('pasteProviderName').value.trim(), $('pasteApiKey').value.trim());
     showResult(result, total);
 }
 
@@ -314,10 +321,11 @@ async function downloadScript(file) {
         const providerName = $('providerName').value.trim() || '9Router';
         content = content.replace(/"name":"9Router"/g, '"name":"' + providerName.replace(/"/g, '\\"') + '"');
         content = content.replace(/"name": "9Router"/g, '"name": "' + providerName.replace(/"/g, '\\"') + '"');
-        content = content.replace(/\"name\":\"9Router\"/g, '\"name\":\"' + providerName.replace(/\"/g, '\\\"') + '\"');
 
-        // Inject token
+        // Inject API key into output scripts
+        const apiKey = $('apiKeyValue').value.trim() || '${input:chat.lm.secret.-65d90303}';
         content = content.replace(/DEFAULT_TOKEN = ""/, 'DEFAULT_TOKEN = "' + token.replace(/"/g, '\\"') + '"');
+        content = content.replace(/DEFAULT_API_KEY = "\\?\$\{input:chat\.lm\.secret\.-65d90303\}"/g, 'DEFAULT_API_KEY = "' + apiKey.replace(/"/g, '\\"') + '"');
         content = content.replace(/set "DEFAULT_TOKEN="/, 'set "DEFAULT_TOKEN=' + token.replace(/"/g, '""') + '"');
 
         // Replace output filename

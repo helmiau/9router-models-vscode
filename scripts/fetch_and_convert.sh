@@ -20,6 +20,7 @@ echo "Fetch OK. Converting..."
 python3 - "$TEMP_FILE" "$OUTPUT_FILE" <<'PYEOF'
 import json, sys
 raw = json.load(open(sys.argv[1],"r",encoding="utf-8"))
+DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
 models = []; seen = set()
 for m in raw.get("data",[]):
     mid = m.get("id","")
@@ -27,7 +28,7 @@ for m in raw.get("data",[]):
     seen.add(mid)
     cap = m.get("capabilities") or {}
     models.append({"id":mid,"name":mid,"url":"http://localhost:20128/v1","toolCalling":bool(cap.get("tools")),"vision":bool(cap.get("vision")),"maxInputTokens":cap.get("contextWindow",128000),"maxOutputTokens":cap.get("maxOutput",64000)})
-R = [{"name":"9Router","vendor":"customendpoint","apiKey":"${input:chat.lm.secret.-65d90303}","apiType":"chat-completions","models":models}]
+R = [{"name":"9Router","vendor":"customendpoint","apiKey":DEFAULT_API_KEY,"apiType":"chat-completions","models":models}]
 json.dump(R, open(sys.argv[2],"w",encoding="utf-8"), indent="\t", ensure_ascii=False)
 print(f"Done! Total: {len(models)} models")
 PYEOF

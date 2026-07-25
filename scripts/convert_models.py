@@ -5,6 +5,7 @@ import json, sys, os
 INPUT = sys.argv[1] if len(sys.argv) >= 2 else "models_raw.json"
 OUTPUT = sys.argv[2] if len(sys.argv) >= 3 else "chatLanguageModels.json"
 BASE_URL = "http://localhost:20128/v1"
+DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
 
 if not os.path.exists(INPUT):
     sys.exit(f"ERROR: {INPUT} not found. Run the fetch script first.")
@@ -28,7 +29,7 @@ for m in raw.get("data", []):
         "maxOutputTokens":cap.get("maxOutput",64000)})
 
 result = [{"name":"9Router","vendor":"customendpoint",
-    "apiKey":"${input:chat.lm.secret.-65d90303}",
+    "apiKey":DEFAULT_API_KEY,
     "apiType":"chat-completions","models":models}]
 with open(OUTPUT, "w", encoding="utf-8") as f:
     json.dump(result, f, indent="\t", ensure_ascii=False)

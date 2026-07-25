@@ -5,6 +5,7 @@ import sys, json, os, urllib.request, urllib.error
 API_URL = "http://localhost:20128/v1/models"
 OUTPUT_FILE = "chatLanguageModels.json"
 API_FILE = "api.txt"
+DEFAULT_API_KEY = "\${input:chat.lm.secret.-65d90303}"
 
 # Token: DEFAULT_TOKEN (web form) > CLI arg > api.txt > prompt
 DEFAULT_TOKEN = ""
@@ -45,7 +46,7 @@ for m in raw.get("data", []):
         "maxOutputTokens":cap.get("maxOutput",64000)})
 
 result = [{"name":"9Router","vendor":"customendpoint",
-    "apiKey":"${input:chat.lm.secret.-65d90303}",
+    "apiKey":DEFAULT_API_KEY,
     "apiType":"chat-completions","models":models}]
 with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
     json.dump(result, f, indent="\t", ensure_ascii=False)
