@@ -21,32 +21,17 @@
                     <button id="tabScripts" onclick="switchTab('scripts')"><span class="material-symbols-outlined tab-icon">code_blocks</span> Scripts</button>
                 </div>
                 <div id="fetchPanel">
-                    <div class="field">
-                        <label for="apiUrl"><span class="material-symbols-outlined label-icon">link</span> Endpoint</label>
-                        <div class="input-row">
-                            <input type="text" id="apiUrl" placeholder="http://localhost:20128/v1/models" autocomplete="off">
-                            <button type="button" class="paste-btn" onclick="pasteField('apiUrl')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                        </div>
-                        <div class="hint">Accepts: localhost, 127.0.0.1, 0.0.0.0, custom domain, or Cloudflare tunnel URL</div>
+                    <div class="endpoint-list" id="endpointList">
+                        <!-- Endpoint rows injected by JS -->
                     </div>
-                    <div class="field">
-                        <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
-                        <div class="input-row">
-                            <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
-                            <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="field">
-                            <label for="providerName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
-                            <input type="text" id="providerName" value="9Router" placeholder="Provider name">
-                        </div>
+                    <button class="add-endpoint-btn" onclick="addEndpoint()" type="button"><span class="material-symbols-outlined btn-icon">add</span> Add Endpoint</button>
+                    <div class="row output-row">
                         <div class="field">
                             <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
                             <input type="text" id="outputFile" value="chatLanguageModels.json">
                         </div>
                     </div>
-                    <button id="fetchBtn" onclick="runFetch()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch & Convert</button>
+                    <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
                     <div id="corsHint" class="hint-box hidden">
                         <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
                         <strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Run a local server: <code>python -m http.server 8080</code><br>• Use the <strong>Paste JSON</strong> tab instead<br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> script
