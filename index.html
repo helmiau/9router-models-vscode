@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -13,161 +13,185 @@
         <span class="material-symbols-outlined icon-dark">dark_mode</span>
         <span class="material-symbols-outlined icon-light">light_mode</span>
     </button>
-    <div class="container">
-        <h1><span class="material-symbols-outlined">mobile_code</span> VSCode Modelator</h1>
-        <p class="subtitle">Bridge your OpenAI compatible models to Visual Studio Code custom models.</p>
-
-        <div class="tabs">
-            <button id="tabFetch" class="active" onclick="switchTab('fetch')"><span class="material-symbols-outlined tab-icon">bolt</span> Fetch from API</button>
-            <button id="tabPaste" onclick="switchTab('paste')"><span class="material-symbols-outlined tab-icon">content_paste</span> Paste JSON</button>
-            <button id="tabScripts" onclick="switchTab('scripts')"><span class="material-symbols-outlined tab-icon">code_blocks</span> Scripts</button>
-        </div>
-
-        <!-- FETCH MODE -->
-        <div id="fetchPanel">
-            <div class="field">
-                <label for="apiUrl"><span class="material-symbols-outlined label-icon">link</span> Endpoint</label>
-                <div class="input-row">
-                    <input type="text" id="apiUrl" placeholder="http://localhost:20128/v1/models" autocomplete="off">
-                    <button type="button" class="paste-btn" onclick="pasteField('apiUrl')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+    <div class="app-layout">
+        <!-- LEFT: Form -->
+        <div class="main-panel" id="mainPanel">
+            <div class="container">
+                <h1><span class="material-symbols-outlined">mobile_code</span> VSCode Modelator</h1>
+                <p class="subtitle">Bridge your OpenAI compatible models to Visual Studio Code custom models.</p>
+                <div class="tabs">
+                    <button id="tabFetch" class="active" onclick="switchTab('fetch')"><span class="material-symbols-outlined tab-icon">bolt</span> Fetch from API</button>
+                    <button id="tabPaste" onclick="switchTab('paste')"><span class="material-symbols-outlined tab-icon">content_paste</span> Paste JSON</button>
+                    <button id="tabScripts" onclick="switchTab('scripts')"><span class="material-symbols-outlined tab-icon">code_blocks</span> Scripts</button>
                 </div>
-                <div class="hint">Accepts: localhost, 127.0.0.1, 0.0.0.0, custom domain, or Cloudflare tunnel URL</div>
-            </div>
-            <div class="field">
-                <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
-                <div class="input-row">
-                    <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
-                    <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                <div id="fetchPanel">
+                    <div class="field">
+                        <label for="apiUrl"><span class="material-symbols-outlined label-icon">link</span> Endpoint</label>
+                        <div class="input-row">
+                            <input type="text" id="apiUrl" placeholder="http://localhost:20128/v1/models" autocomplete="off">
+                            <button type="button" class="paste-btn" onclick="pasteField('apiUrl')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                        </div>
+                        <div class="hint">Accepts: localhost, 127.0.0.1, 0.0.0.0, custom domain, or Cloudflare tunnel URL</div>
+                    </div>
+                    <div class="field">
+                        <label for="apiKeyValue"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+                        <div class="input-row">
+                            <input type="password" id="apiKeyValue" placeholder="sk-xxxxx or ${input:chat.lm.secret.-65d90303}">
+                            <button type="button" class="paste-btn" onclick="pasteField('apiKeyValue')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="providerName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
+                            <input type="text" id="providerName" value="9Router" placeholder="Provider name">
+                        </div>
+                        <div class="field">
+                            <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
+                            <input type="text" id="outputFile" value="chatLanguageModels.json">
+                        </div>
+                    </div>
+                    <button id="fetchBtn" onclick="runFetch()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch & Convert</button>
+                    <div id="corsHint" class="hint-box hidden">
+                        <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
+                        <strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Run a local server: <code>python -m http.server 8080</code><br>• Use the <strong>Paste JSON</strong> tab instead<br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> script
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="field">
-                    <label for="providerName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
-                    <input type="text" id="providerName" value="9Router" placeholder="Provider name">
+                <div id="pastePanel" class="hidden">
+                    <div class="field">
+                        <label for="pasteInput"><span class="material-symbols-outlined label-icon">terminal</span> Paste raw JSON response from /v1/models</label>
+                        <textarea class="paste-area" id="pasteInput" placeholder='{"object":"list","data":[{"id":"gpt-4o","capabilities":{...}}]}'></textarea>
+                    </div>
+                    <div class="field">
+                        <label><span class="material-symbols-outlined label-icon">upload</span> Or upload models_raw.json</label>
+                        <div class="upload-zone" id="uploadZone">
+                            <input type="file" id="fileUpload" accept=".json" onchange="handleFileUpload(event)">
+                            <label for="fileUpload" class="upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop models_raw.json here</label>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+                        <div class="input-row">
+                            <input type="password" id="pasteApiKey" placeholder="${input:chat.lm.secret.-65d90303}">
+                            <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="pasteProviderName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
+                            <input type="text" id="pasteProviderName" value="9Router" placeholder="Provider name">
+                        </div>
+                        <div class="field">
+                            <label for="pasteOutputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
+                            <input type="text" id="pasteOutputFile" value="chatLanguageModels.json">
+                        </div>
+                        <div class="field paste-convert-row">
+                            <button onclick="runPaste()"><span class="material-symbols-outlined btn-icon">code</span> Convert</button>
+                        </div>
+                    </div>
+                    <div class="hint-box">
+                        <div class="curl-header">
+                            <strong>How to get JSON:</strong>
+                            <button class="copy-curl-btn" onclick="copyCurlCommand()" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span> Copy</button>
+                        </div>
+                        <div class="curl-box"><code id="curlCommand">curl -s -H "Authorization: Bearer YOUR_TOKEN" http://localhost:20128/v1/models</code></div>
+                        Or download the fetch script from the <strong>Scripts</strong> tab.
+                    </div>
                 </div>
-                <div class="field">
-                    <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
-                    <input type="text" id="outputFile" value="chatLanguageModels.json">
+                <div id="scriptsPanel" class="hidden">
+                    <div class="hint-box">
+                        <strong>💡 Workflow when localhost is not accessible:</strong><br>
+                        1. Download a <strong>Fetch</strong> script → run on machine with access → produces <code>models_raw.json</code><br>
+                        2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
+                        3. Convert to <code>chatLanguageModels.json</code> → download or copy
+                    </div>
+                    <div class="scripts-section">
+                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">download</span> Fetch Only → models_raw.json</div>
+                        <div class="script-grid">
+                            <button class="script-btn" onclick="downloadScript('fetch_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.py</button>
+                            <button class="script-btn" onclick="downloadScript('fetch_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.bat</button>
+                            <button class="script-btn" onclick="downloadScript('fetch_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.sh</button>
+                        </div>
+                    </div>
+                    <div class="scripts-section">
+                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">code</span> Convert Only → chatLanguageModels.json</div>
+                        <div class="script-grid">
+                            <button class="script-btn" onclick="downloadScript('convert_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.py</button>
+                            <button class="script-btn" onclick="downloadScript('convert_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.bat</button>
+                            <button class="script-btn" onclick="downloadScript('convert_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.sh</button>
+                        </div>
+                    </div>
+                    <div class="scripts-section">
+                        <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">bolt</span> Combined (fetch + convert)</div>
+                        <div class="script-grid">
+                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.py</button>
+                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.bat</button>
+                            <button class="script-btn" onclick="downloadScript('fetch_and_convert.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.sh</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <button id="fetchBtn" onclick="runFetch()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch & Convert</button>
-            <div id="corsHint" class="hint-box hidden">
-                <strong>🔒 Mixed content blocked?</strong><br>
-                Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
-                <strong>Options:</strong><br>
-                • Open this page via <code>file://</code> — double-click <code>index.html</code><br>
-                • Run a local server: <code>python -m http.server 8080</code><br>
-                • Use the <strong>Paste JSON</strong> tab instead<br>
-                • Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> script
-            </div>
-        </div>
-
-        <!-- PASTE MODE -->
-        <div id="pastePanel" class="hidden">
-            <div class="field">
-                <label for="pasteInput"><span class="material-symbols-outlined label-icon">terminal</span> Paste raw JSON response from /v1/models</label>
-                <textarea class="paste-area" id="pasteInput" placeholder='{"object":"list","data":[{"id":"gpt-4o","capabilities":{...}}]}'></textarea>
-            </div>
-            <div class="field">
-                <label><span class="material-symbols-outlined label-icon">upload</span> Or upload models_raw.json</label>
-                <div class="upload-zone" id="uploadZone">
-                    <input type="file" id="fileUpload" accept=".json" onchange="handleFileUpload(event)">
-                    <label for="fileUpload" class="upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop models_raw.json here</label>
-                </div>
-            </div>
-            <div class="field">
-                <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
-                <div class="input-row">
-                    <input type="password" id="pasteApiKey" placeholder="${input:chat.lm.secret.-65d90303}">
-                    <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                </div>
-            </div>
-            <div class="row">
-                <div class="field">
-                    <label for="pasteProviderName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
-                    <input type="text" id="pasteProviderName" value="9Router" placeholder="Provider name">
-                </div>
-                <div class="field">
-                    <label for="pasteOutputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
-                    <input type="text" id="pasteOutputFile" value="chatLanguageModels.json">
-                </div>
-                <div class="field paste-convert-row">
-                    <button onclick="runPaste()"><span class="material-symbols-outlined btn-icon">code</span> Convert</button>
-                </div>
-            </div>
-            <div class="hint-box">
-                <div class="curl-header">
-                    <strong>How to get JSON:</strong>
-                    <button class="copy-curl-btn" onclick="copyCurlCommand()" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span> Copy</button>
-                </div>
-                <div class="curl-box">
-                    <code id="curlCommand">curl -s -H "Authorization: Bearer YOUR_TOKEN" http://localhost:20128/v1/models</code>
-                </div>
-                Or download the fetch script from the <strong>Scripts</strong> tab.
-            </div>
-        </div>
-
-        <!-- SCRIPTS MODE -->
-        <div id="scriptsPanel" class="hidden">
-            <div class="hint-box">
-                <strong>💡 Workflow when localhost is not accessible:</strong><br>
-                1. Download a <strong>Fetch</strong> script → run on machine with 9Router access → produces <code>models_raw.json</code><br>
-                2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
-                3. Convert to <code>chatLanguageModels.json</code> → download or copy
-            </div>
-
-            <div class="scripts-section">
-                <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">download</span> Fetch Only → models_raw.json</div>
-                <div class="script-grid">
-                    <button class="script-btn" onclick="downloadScript('fetch_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.py</button>
-                    <button class="script-btn" onclick="downloadScript('fetch_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.bat</button>
-                    <button class="script-btn" onclick="downloadScript('fetch_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_models.sh</button>
-                </div>
-            </div>
-
-            <div class="scripts-section">
-                <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">code</span> Convert Only → chatLanguageModels.json</div>
-                <div class="script-grid">
-                    <button class="script-btn" onclick="downloadScript('convert_models.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.py</button>
-                    <button class="script-btn" onclick="downloadScript('convert_models.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.bat</button>
-                    <button class="script-btn" onclick="downloadScript('convert_models.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> convert_models.sh</button>
-                </div>
-            </div>
-
-            <div class="scripts-section">
-                <div class="scripts-section-title"><span class="material-symbols-outlined label-icon">bolt</span> Combined (fetch + convert)</div>
-                <div class="script-grid">
-                    <button class="script-btn" onclick="downloadScript('fetch_and_convert.py')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.py</button>
-                    <button class="script-btn" onclick="downloadScript('fetch_and_convert.bat')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.bat</button>
-                    <button class="script-btn" onclick="downloadScript('fetch_and_convert.sh')"><span class="material-symbols-outlined btn-icon-sm">terminal</span> fetch_and_convert.sh</button>
-                </div>
+                <div id="status" class="status"></div>
             </div>
         </div>
-
-        <div id="status" class="status"></div>
-
-        <!-- GitHub-style editor wrapper -->
-        <div id="editorWrap" class="editor-wrap hidden">
-            <div class="editor-header">
-                <span class="editor-filename"><span class="material-symbols-outlined editor-file-icon">edit_note</span> chatLanguageModels.json</span>
-                <span class="editor-lang">JSON</span>
+        <!-- RIGHT: Editor -->
+        <div class="side-panel" id="sidePanel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <span class="material-symbols-outlined panel-header-icon">data_object</span>
+                    <span class="panel-header-title">chatLanguageModels.json</span>
+                    <span class="panel-header-badge hidden" id="modelCount"></span>
+                </div>
+                <div class="panel-header-actions">
+                    <button class="panel-btn" onclick="toggleSidePanel()" title="Collapse panel"><span class="material-symbols-outlined">left_panel_close</span></button>
+                    <button class="panel-btn" onclick="copyToClipboard()" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                    <button class="panel-btn" onclick="download()" title="Download"><span class="material-symbols-outlined">download</span></button>
+                </div>
             </div>
-            <div class="editor-body">
-                <div id="lineNumbers" class="line-numbers"></div>
-                <textarea id="preview" class="editor-textarea" spellcheck="false" aria-label="Output preview — editable JSON" placeholder="Converted chatLanguageModels.json will appear here..."></textarea>
+            <div class="panel-body" id="editorBody">
+                <div class="editor-empty" id="editorEmpty">
+                    <span class="material-symbols-outlined editor-empty-icon">code_off</span>
+                    <span>Output will appear here after conversion</span>
+                </div>
+                <div class="editor-content hidden" id="editorContent">
+                    <div class="editor-toolbar">
+                        <span class="editor-lang-badge">JSON</span>
+                        <button class="editor-tool-btn" onclick="toggleEditMode()" title="Toggle edit mode"><span class="material-symbols-outlined" id="editModeIcon">edit</span></button>
+                    </div>
+                    <div class="editor-code-wrap">
+                        <div class="line-numbers" id="lineNumbers"></div>
+                        <pre class="editor-highlight" id="editorHighlight"><code id="highlightCode"></code></pre>
+                        <textarea id="preview" class="editor-textarea hidden" spellcheck="false" aria-label="JSON editor"></textarea>
+                    </div>
+                    <div class="editor-cache-bar hidden" id="cacheBar">
+                        <span id="cacheInfo">Cached locally</span>
+                        <button class="editor-cache-clear" onclick="clearCache()"><span class="material-symbols-outlined">delete</span> Clear</button>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <div id="cacheBar" class="cache-bar">
-            <span id="cacheInfo">Cached locally</span>
-            <button onclick="clearCache()"><span class="material-symbols-outlined btn-icon-sm">clear_all</span> Clear cache</button>
-        </div>
-        <div id="actions" class="actions">
-            <button class="btn-secondary" onclick="download()"><span class="material-symbols-outlined btn-icon">download</span> Download JSON</button>
-            <button class="btn-secondary" onclick="copyToClipboard()"><span class="material-symbols-outlined btn-icon">visibility</span> Copy</button>
         </div>
     </div>
-
+    <!-- Expand collapsed side panel -->
+    <button class="expand-btn" id="expandBtn" style="display:none" onclick="toggleSidePanel()" title="Expand editor panel">
+        <span class="material-symbols-outlined">left_panel_open</span>
+    </button>
+    <!-- BOTTOM: Log -->
+    <div class="log-panel" id="logPanel">
+        <div class="log-header" onclick="toggleLogPanel()">
+            <div class="log-header-left">
+                <span class="material-symbols-outlined log-header-icon">terminal</span>
+                <span class="log-header-title">Activity Log</span>
+                <span class="log-count" id="logCount">0</span>
+            </div>
+            <div class="log-header-actions">
+                <button class="panel-btn" onclick="event.stopPropagation();clearLog()" title="Clear"><span class="material-symbols-outlined">delete_sweep</span></button>
+                <button class="panel-btn" onclick="event.stopPropagation();toggleLogPanel()" title="Toggle"><span class="material-symbols-outlined" id="logToggleIcon">expand_less</span></button>
+            </div>
+        </div>
+        <div class="log-body" id="logBody">
+            <div class="log-entries" id="logEntries">
+                <div class="log-empty" id="logEmpty"><span class="material-symbols-outlined log-empty-icon">receipt_long</span><span>No activity yet</span></div>
+            </div>
+        </div>
+    </div>
     <script src="assets/app.js"></script>
 </body>
 </html>
