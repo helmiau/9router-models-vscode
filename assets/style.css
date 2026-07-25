@@ -518,6 +518,49 @@ button:disabled {
     font-family: 'SF Mono', 'Consolas', monospace;
 }
 
+.curl-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-2);
+}
+
+.curl-box {
+    background: var(--color-bg-body);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-inner);
+    padding: var(--spacing-2) var(--spacing-3);
+    margin-bottom: var(--spacing-2);
+    overflow-x: auto;
+}
+
+.curl-box code {
+    background: none;
+    padding: 0;
+    font-size: 0.75rem;
+    white-space: pre;
+    user-select: all;
+}
+
+.copy-curl-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 2px;
+    width: auto !important;
+    height: auto !important;
+    padding: 2px var(--spacing-2) !important;
+    font-size: 0.7rem !important;
+    background: transparent !important;
+    border: 1px solid var(--color-success) !important;
+    color: var(--color-success) !important;
+    margin-top: 0 !important;
+    cursor: pointer;
+    border-radius: var(--radius-inner);
+    transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.copy-curl-btn .material-symbols-outlined { font-size: 0.85rem; }
+.copy-curl-btn:hover { background: var(--color-success-muted) !important; }
+
 /* --- Utility --- */
 
 .hidden { display: none !important; }

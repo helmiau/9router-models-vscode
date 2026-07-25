@@ -1,6 +1,7 @@
 /* ============================================
-   9Router Model Fetcher & Converter
-   For GitHub Copilot Agent Chat
+   VSCode Modelator
+   Bridge your OpenAI compatible models to
+   Visual Studio Code custom models.
    ============================================ */
 
 let lastResult = null;
@@ -14,6 +15,30 @@ function pasteField(id) {
     navigator.clipboard.readText().then(text => {
         $(id).value = text.trim();
         $(id).dispatchEvent(new Event('input'));
+    }).catch(() => {});
+}
+
+// --- Dynamic curl command ---
+
+function updateCurlCommand() {
+    const url = ($('apiUrl')?.value || '').trim() || 'http://localhost:20128/v1/models';
+    const key = ($('apiKeyValue')?.value || '').trim() || 'YOUR_TOKEN';
+    const endpoint = buildEndpoint(url);
+    const cmd = `curl -s -H "Authorization: Bearer ${key}" ${endpoint}`;
+    const el = $('curlCommand');
+    if (el) el.textContent = cmd;
+}
+
+function copyCurlCommand() {
+    const el = $('curlCommand');
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent).then(() => {
+        const btn = el.closest('.hint-box')?.querySelector('.copy-curl-btn');
+        if (btn) {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        }
     }).catch(() => {});
 }
 
@@ -407,6 +432,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter' && !e.shiftKey && !$('fetchBtn').disabled
             && !$('fetchPanel').classList.contains('hidden')) runFetch();
     });
+
+    // Live-update curl command from form inputs
+    ['apiUrl', 'apiKeyValue'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('input', updateCurlCommand);
+    });
+    updateCurlCommand();
 
     // Restore cache
     loadCache();
