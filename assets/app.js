@@ -11,6 +11,7 @@ let logEntries = [];
 let editMode = false;
 let currentView = 'tree'; // 'json' | 'tree'
 let endpointIdCounter = 0;
+let treeExpanded = {};
 
 // --- DOM helpers ---
 
@@ -660,12 +661,8 @@ function showResult(data, total) {
     $('editorContent').classList.remove('hidden');
     $('modelCount').classList.remove('hidden');
     $('modelCount').textContent = total + ' models';
-    if (currentView === 'tree') {
-        renderTreeView(data);
-    } else if (aceEditor) {
-        aceEditor.setValue(json, -1);
-        aceEditor.clearSelection();
-    }
+    renderTreeView(data);
+    if (aceEditor) { aceEditor.setValue(json, -1); aceEditor.clearSelection(); }
     editMode = false;
     if (aceEditor) aceEditor.setReadOnly(true);
     $('editModeIcon').textContent = 'edit';
@@ -692,7 +689,7 @@ function loadCache() {
         $('editorEmpty').classList.add('hidden');
         $('editorContent').classList.remove('hidden');
         lastResult = JSON.parse(cached);
-        switchView(currentView);
+        renderTreeView(lastResult);
         if (aceEditor) { aceEditor.setValue(cached, -1); aceEditor.clearSelection(); }
         showCacheBar();
         let count = 0;
@@ -832,41 +829,42 @@ async function runFetchAll() {
     $('editorEmpty').classList.remove('hidden');
     $('editorContent').classList.add('hidden');
 
-    log('action', `Fetching ${rows.length} endpoint(s)...`);
+    try {
+        log('action', `Fetching ${rows.length} endpoint(s)...`);
 
-    // Check mixed content for any
-    let hasMixed = false;
-    rows.forEach(row => {
-        if (isMixedContent(row.querySelector('.ep-url')?.value?.trim())) hasMixed = true;
-    });
-    $('corsHint').classList.toggle('hidden', !hasMixed);
+        // Check mixed content for any
+        let hasMixed = false;
+        rows.forEach(row => {
+            if (isMixedContent(row.querySelector('.ep-url')?.value?.trim())) hasMixed = true;
+        });
+        $('corsHint').classList.toggle('hidden', !hasMixed);
 
-    const allProviders = [];
-    let totalModels = 0;
+        const allProviders = [];
+        let totalModels = 0;
 
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const url = row.querySelector('.ep-url')?.value?.trim();
-        const key = row.querySelector('.ep-key')?.value?.trim();
-        const name = row.querySelector('.ep-name')?.value?.trim() || '';
-        const rowId = parseInt(row.dataset.id);
-
-        const provider = await fetchSingleEndpoint(rowId);
-        if (provider) {
-            allProviders.push(provider);
-            totalModels += provider.models.length;
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowId = parseInt(row.dataset.id);
+            const provider = await fetchSingleEndpoint(rowId);
+            if (provider) {
+                allProviders.push(provider);
+                totalModels += provider.models.length;
+            }
         }
-    }
 
-    if (allProviders.length === 0) {
-        setStatus('All endpoints failed.', 'err');
-        log('error', 'All endpoints failed');
-    } else {
-        showResult(allProviders, totalModels);
+        if (allProviders.length === 0) {
+            setStatus('All endpoints failed.', 'err');
+            log('error', 'All endpoints failed');
+        } else {
+            showResult(allProviders, totalModels);
+        }
+    } catch (e) {
+        setStatus('Fetch error: ' + e.message, 'err');
+        log('error', 'Fetch failed: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge';
     }
-
-    btn.disabled = false;
-    btn.innerHTML = '<span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge';
 }
 
 // --- Paste mode ---

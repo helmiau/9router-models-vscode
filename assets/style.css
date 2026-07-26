@@ -226,15 +226,17 @@ body.light .sidebar-item .icon-light { display: inline; }
     flex: 1; min-width: 0; height: 100%; overflow: hidden;
     display: flex;
 }
-.content-panel { display: none; width: 100%; height: 100%; overflow-y: auto; }
-.content-panel.active { display: flex; }
+.content-panel { display: none; width: 100%; height: 100%; overflow: hidden; }
+.content-panel.active { display: flex; flex: 1; min-height: 0; }
 .content-panel.active > .main-panel { flex: 1; min-width: 0; overflow-y: auto; padding: var(--spacing-6); }
 .content-panel.active > .side-panel {
-    flex: 1; min-width: 320px; max-width: 60vw;
+    flex: 1; min-width: 0; max-width: none;
     display: flex; flex-direction: column;
     border-left: 1px solid var(--color-border);
     background: var(--color-bg-surface);
 }
+/* Editor panel: full width (no main-panel sibling) */
+#panelEditor.active { justify-content: stretch; }
 
 /* --- Legacy layout compat --- */
 .main-panel { flex: 1; min-width: 0; overflow-y: auto; padding: var(--spacing-6); }
