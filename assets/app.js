@@ -94,347 +94,87 @@ function toggleLogPanel() {
     icon.textContent = panel.classList.contains('collapsed') ? 'expand_more' : 'expand_less';
 }
 
-function toggleEditMode() {
-    if (currentView === 'tree') { log('warn', 'Switch to Code view first to edit'); return; }
-    editMode = !editMode;
-    const wrap = $('editorCodeWrap');
-    const highlight = $('editorHighlight');
-    const textarea = $('preview');
-    const icon = $('editModeIcon');
-    const label = $('editModeLabel');
-    const btn = $('editBtn');
-    if (editMode) {
-        // Overlay: show highlight as colored background, textarea transparent on top
-        const json = highlight.textContent || '';
-        textarea.value = json;
-        renderHighlight(json); // keep highlight colored behind
-        highlight.classList.remove('hidden');
-        textarea.classList.remove('hidden');
-        wrap.classList.add('editing');
-        icon.textContent = 'visibility';
-        label.textContent = 'View';
-        btn.classList.add('active');
-        textarea.focus();
-        updateLineNumbers(json);
-        log('action', 'Edit mode enabled');
-    } else {
-        const val = textarea.value.trim();
-        if (val) {
-            try {
-                const parsed = JSON.parse(val);
-                const json = JSON.stringify(parsed, null, '\t');
-                renderHighlight(json);
-                updateLineNumbers(json);
-                saveCache(json);
-                lastResult = parsed;
-            } catch { renderHighlight(textarea.value); updateLineNumbers(textarea.value); }
-        }
-        wrap.classList.remove('editing');
-        highlight.classList.remove('hidden');
-        textarea.classList.add('hidden');
-        icon.textContent = 'edit';
-        label.textContent = 'Edit';
-        btn.classList.remove('active');
-        closeAutocomplete();
-        log('action', 'Edit mode disabled');
-    }
-}
+// --- Ace Editor ---
 
-// --- Beautify / Format ---
+let aceEditor = null;
 
-function beautifyJSON() {
-    const textarea = $('preview');
-    const highlight = $('highlightCode');
-    const text = editMode ? textarea.value : highlight.textContent;
-    if (!text || !text.trim()) { log('warn', 'Nothing to format'); return; }
-    try {
-        const parsed = JSON.parse(text);
-        const formatted = JSON.stringify(parsed, null, '\t');
-        if (editMode) {
-            textarea.value = formatted;
-            textarea.setSelectionRange(0, 0);
-            textarea.scrollTop = 0;
-        }
-        renderHighlight(formatted);
-        updateLineNumbers(formatted);
-        saveCache(formatted);
-        lastResult = parsed;
-        log('success', `JSON formatted (${formatted.length} chars, ${formatted.split('\\n').length} lines)`);
-    } catch (e) {
-        log('error', `Format failed: ${e.message}`);
-    }
-}
-
-// --- Autocomplete ---
-
-const AC_SCHEMA_KEYS = [
-    { key: 'name', type: 'string', snippet: '"name": "${1:name}"' },
-    { key: 'vendor', type: 'string', snippet: '"vendor": "customendpoint"' },
-    { key: 'apiKey', type: 'string', snippet: '"apiKey": "${1:sk-xxxx}"' },
-    { key: 'apiType', type: 'string', snippet: '"apiType": "chat-completions"' },
-    { key: 'models', type: 'array', snippet: '"models": [\n\t${1}\n]' },
-    { key: 'id', type: 'string', snippet: '"id": "${1:model-id}"' },
-    { key: 'url', type: 'string', snippet: '"url": "${1:http://localhost:20128/v1}"' },
-    { key: 'toolCalling', type: 'boolean', snippet: '"toolCalling": true' },
-    { key: 'vision', type: 'boolean', snippet: '"vision": true' },
-    { key: 'maxInputTokens', type: 'number', snippet: '"maxInputTokens": 128000' },
-    { key: 'maxOutputTokens', type: 'number', snippet: '"maxOutputTokens": 64000' },
-    { key: 'owned_by', type: 'string', snippet: '"owned_by": "${1:combo}"' },
-    { key: 'object', type: 'string', snippet: '"object": "list"' },
-    { key: 'data', type: 'array', snippet: '"data": [\n\t${1}\n]' },
-    { key: 'true', type: 'boolean', snippet: 'true' },
-    { key: 'false', type: 'boolean', snippet: 'false' },
-    { key: 'null', type: 'null', snippet: 'null' },
-];
-
-let acState = { active: false, items: [], selectedIdx: 0, prefix: '', startPos: 0, type: '' };
-
-function getCursorInfo(textarea) {
-    const pos = textarea.selectionStart;
-    const text = textarea.value;
-    // Find the word being typed (after a quote or at start)
-    let start = pos;
-    while (start > 0 && /[\w-]/.test(text[start - 1])) start--;
-    const word = text.substring(start, pos);
-    // Determine context: are we inside a key (after " and before ":) or a value?
-    const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-    const lineText = text.substring(lineStart, pos);
-    const beforeCursor = text.substring(0, pos);
-    // Count unclosed quotes before cursor
-    let inString = false;
-    for (let i = 0; i < pos; i++) { if (text[i] === '"' && (i === 0 || text[i-1] !== '\\')) inString = !inString; }
-    // Check if this looks like a key position (after { or , and whitespace/newline, inside quotes)
-    const trimmed = lineText.trimStart();
-    const isKey = inString && (trimmed.startsWith('"') && !trimmed.includes(':'));
-    return { pos, start, word, inString, isKey, beforeCursor };
-}
-
-function triggerAutocomplete() {
-    if (!editMode) return;
-    const textarea = $('preview');
-    const info = getCursorInfo(textarea);
-    let items = [];
-    const query = info.word.toLowerCase();
-
-    if (info.inString && info.word.length > 0) {
-        // Filter schema keys
-        items = AC_SCHEMA_KEYS.filter(s =>
-            s.key.toLowerCase().startsWith(query)
-        ).map(s => ({
-            label: s.key,
-            type: s.type,
-            icon: s.type === 'boolean' || s.type === 'null' ? 'val' : (s.type === 'array' ? 'snippet' : 'key'),
-            snippet: s.snippet,
-            replaceStart: info.start,
-            replaceEnd: info.pos,
-        }));
-        acState.type = 'key';
-    }
-
-    if (items.length === 0) {
-        closeAutocomplete();
-        return;
-    }
-
-    acState.active = true;
-    acState.items = items;
-    acState.selectedIdx = 0;
-    acState.startPos = info.start;
-    acState.endPos = info.pos;
-    renderAutocomplete(textarea);
-}
-
-function renderAutocomplete(textarea) {
-    const dd = $('autocompleteDropdown');
-    if (acState.items.length === 0) { closeAutocomplete(); return; }
-
-    // Position near cursor using mirror technique
-    const rect = textarea.getBoundingClientRect();
-    const mirror = document.createElement('div');
-    mirror.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:' + getComputedStyle(textarea).fontFamily + ';font-size:' + getComputedStyle(textarea).fontSize + ';line-height:' + getComputedStyle(textarea).lineHeight + ';padding:' + getComputedStyle(textarea).padding;
-    mirror.textContent = textarea.value.substring(0, textarea.selectionStart);
-    const span = document.createElement('span');
-    span.textContent = '|';
-    mirror.appendChild(span);
-    document.body.appendChild(mirror);
-    const spanRect = span.getBoundingClientRect();
-    const mirrorRect = mirror.getBoundingClientRect();
-    const caretY = spanRect.top - mirrorRect.top;
-    const caretX = spanRect.left - mirrorRect.left;
-    document.body.removeChild(mirror);
-
-    // Calculate position relative to textarea
-    const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight);
-    const paddingTop = parseFloat(getComputedStyle(textarea).paddingTop);
-    const paddingLeft = parseFloat(getComputedStyle(textarea).paddingLeft);
-    const scrollTop = textarea.scrollTop;
-    const scrollLeft = textarea.scrollLeft;
-
-    let top = rect.top + paddingTop + caretY - scrollTop + lineHeight + 2;
-    let left = rect.left + paddingLeft + caretX - scrollLeft;
-
-    // Clamp to viewport
-    const ddMaxH = 200;
-    if (top + ddMaxH > window.innerHeight) top = rect.top + paddingTop + caretY - scrollTop - ddMaxH - 2;
-    if (left + 280 > window.innerWidth) left = window.innerWidth - 290;
-    if (left < rect.left) left = rect.left;
-
-    dd.style.top = top + 'px';
-    dd.style.left = left + 'px';
-
-    let html = '';
-    acState.items.forEach((item, i) => {
-        const sel = i === acState.selectedIdx ? ' selected' : '';
-        const iconCls = 'ac-icon ac-icon-' + item.icon;
-        const iconChar = item.icon === 'val' ? 'T' : (item.icon === 'snippet' ? '»' : 'K');
-        html += `<div class="autocomplete-item${sel}" data-idx="${i}" onmousedown="acceptAutocomplete(${i})">`;
-        html += `<span class="${iconCls}">${iconChar}</span>`;
-        html += `<span class="ac-label">${escHtml(item.label)}</span>`;
-        html += `<span class="ac-type">${escHtml(item.type)}</span>`;
-        html += `</div>`;
+function initAce() {
+    const el = document.getElementById('aceEditor');
+    if (!el || !window.ace) { console.warn('Ace.js not loaded'); return; }
+    aceEditor = ace.edit('aceEditor');
+    aceEditor.setTheme('ace/theme/tomorrow_night');
+    aceEditor.session.setMode('ace/mode/json');
+    aceEditor.setOptions({
+        fontSize: '13px',
+        fontFamily: "'SF Mono', 'Consolas', 'Courier New', monospace",
+        showPrintMargin: false,
+        tabSize: 4,
+        useSoftTabs: true,
+        wrap: false,
+        readOnly: true,
+        showGutter: true,
+        highlightActiveLine: true,
+        cursorStyle: 'smooth',
+        animatedScroll: true,
     });
-    dd.innerHTML = html;
-    dd.classList.remove('hidden');
-}
-
-function closeAutocomplete() {
-    acState.active = false;
-    acState.items = [];
-    const dd = $('autocompleteDropdown');
-    if (dd) dd.classList.add('hidden');
-}
-
-function acceptAutocomplete(idx) {
-    const item = acState.items[idx];
-    if (!item) return;
-    const textarea = $('preview');
-    const start = acState.startPos;
-    const end = textarea.selectionStart;
-    // Replace the current word with the snippet
-    const snippet = item.snippet;
-    // Handle simple snippets (no tab stops)
-    const plain = snippet.replace(/\$\{\d+:?([^}]*)\}/g, '$1').replace(/\$\d+/g, '');
-    textarea.setRangeText(plain, start, end, 'end');
-    textarea.focus();
-    closeAutocomplete();
-    // Auto-format after insert if it's a structure
-    if (item.type === 'array' || item.type === 'boolean' || item.type === 'null') {
-        // Trigger re-save
-        saveCache(textarea.value);
-    }
-}
-
-function navigateAutocomplete(dir) {
-    if (!acState.active) return false;
-    acState.selectedIdx = (acState.selectedIdx + dir + acState.items.length) % acState.items.length;
-    renderAutocomplete($('preview'));
-    return true;
-}
-
-// --- Syntax highlighting ---
-
-function highlightJSON(json) {
-    let html = '';
-    let i = 0;
-    const len = json.length;
-    while (i < len) {
-        const ch = json[i];
-        if (ch === '"') {
-            let j = i + 1;
-            while (j < len && json[j] !== '"') { if (json[j] === '\\') j++; j++; }
-            j++;
-            const str = json.substring(i, j);
-            let k = j;
-            while (k < len && json[k] === ' ') k++;
-            if (json[k] === ':') {
-                html += '<span class="json-key">' + escHtml(str) + '</span>';
-            } else {
-                html += '<span class="json-string">' + escHtml(str) + '</span>';
-            }
-            i = j;
-        } else if (ch === '{' || ch === '}') {
-            html += '<span class="json-brace">' + ch + '</span>'; i++;
-        } else if (ch === '[' || ch === ']') {
-            html += '<span class="json-bracket">' + ch + '</span>'; i++;
-        } else if (ch === ':') {
-            html += '<span class="json-colon">:</span>'; i++;
-        } else if (ch === ',') {
-            html += '<span class="json-comma">,</span>'; i++;
-        } else if (ch === 't' && json.substring(i, i + 4) === 'true') {
-            html += '<span class="json-boolean">true</span>'; i += 4;
-        } else if (ch === 'f' && json.substring(i, i + 5) === 'false') {
-            html += '<span class="json-boolean">false</span>'; i += 5;
-        } else if (ch === 'n' && json.substring(i, i + 4) === 'null') {
-            html += '<span class="json-null">null</span>'; i += 4;
-        } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
-            let j = i;
-            if (ch === '-') j++;
-            while (j < len && ((json[j] >= '0' && json[j] <= '9') || json[j] === '.' || json[j] === 'e' || json[j] === 'E' || json[j] === '+' || json[j] === '-')) {
-                if ((json[j] === '+' || json[j] === '-') && j > i + 1 && json[j-1] !== 'e' && json[j-1] !== 'E') break;
-                j++;
-            }
-            html += '<span class="json-number">' + escHtml(json.substring(i, j)) + '</span>';
-            i = j;
-        } else {
-            html += escHtml(ch); i++;
+    aceEditor.commands.addCommand({ name: 'toggleEdit', bindKey: { win: 'Ctrl-E', mac: 'Cmd-E' }, exec: function() { toggleEditMode(); } });
+    aceEditor.commands.addCommand({ name: 'formatJSON', bindKey: { win: 'Shift-Alt-F', mac: 'Shift-Alt-F' }, exec: function() { formatAce(); } });
+    aceEditor.on('change', function() {
+        if (!aceEditor.getReadOnly()) {
+            const val = aceEditor.getValue();
+            if (val) { try { lastResult = JSON.parse(val); saveCache(val); } catch {} }
         }
-    }
-    return html;
+    });
+    updateAceTheme();
 }
 
-function renderHighlight(json) {
-    $('highlightCode').innerHTML = highlightJSON(json);
+function updateAceTheme() {
+    if (!aceEditor) return;
+    const isDark = !document.body.classList.contains('light');
+    aceEditor.setTheme(isDark ? 'ace/theme/tomorrow_night' : 'ace/theme/textmate');
 }
 
-function updateLineNumbers(json) {
-    const lines = (json || '').split('\n').length;
-    let html = '';
-    for (let i = 1; i <= lines; i++) html += '<span>' + i + '</span>';
-    $('lineNumbers').innerHTML = html;
+function formatAce() {
+    if (!aceEditor) return;
+    const val = aceEditor.getValue();
+    if (!val) { log('warn', 'Nothing to format'); return; }
+    try {
+        const parsed = JSON.parse(val);
+        const formatted = JSON.stringify(parsed, null, '\t');
+        aceEditor.setValue(formatted, -1);
+        lastResult = parsed;
+        saveCache(formatted);
+        log('success', 'JSON formatted');
+    } catch (e) { log('error', 'Format failed: ' + e.message); }
 }
 
-// --- View switching ---
-
-let treeExpanded = {}; // key => boolean (open/closed)
+function toggleEditMode() {
+    if (currentView !== 'json' || !aceEditor) return;
+    editMode = !editMode;
+    aceEditor.setReadOnly(!editMode);
+    $('editModeIcon').textContent = editMode ? 'visibility' : 'edit';
+    $('editModeLabel').textContent = editMode ? 'View' : 'Edit';
+    $('editBtn').classList.toggle('active', editMode);
+    log('action', editMode ? 'Edit mode enabled' : 'Edit mode disabled');
+}
 
 function switchView(view) {
     currentView = view;
-    $('btnViewJson').classList.toggle('active', view === 'json');
+    const treeEl = $('treeView');
+    const aceEl = $('aceEditor');
+    const rightBar = $('editorToolbarRight');
     $('btnViewTree').classList.toggle('active', view === 'tree');
-
-    if (view === 'json') {
-        $('editorCodeWrap').classList.remove('hidden');
-        $('treeView').classList.add('hidden');
-        $('lineNumbers').style.display = '';
-        $('codeControls').classList.remove('hidden');
-        // Update JSON view if data exists
-        if (lastResult) {
-            const json = JSON.stringify(lastResult, null, '\t');
-            renderHighlight(json);
-            updateLineNumbers(json);
-            $('editorHighlight').classList.remove('hidden');
-        }
-        // Disable edit in tree
-        editMode = false;
-        $('editorCodeWrap').classList.remove('editing');
-        $('editorHighlight').classList.remove('hidden');
-        $('preview').classList.add('hidden');
-        $('editModeIcon').textContent = 'edit';
-        $('editModeLabel').textContent = 'Edit';
-        $('editBtn').classList.remove('active');
+    $('btnViewJson').classList.toggle('active', view === 'json');
+    if (view === 'tree') {
+        if (treeEl) treeEl.style.display = '';
+        if (aceEl) aceEl.classList.add('hidden');
+        if (rightBar) rightBar.style.display = 'none';
     } else {
-        $('editorCodeWrap').classList.add('hidden');
-        $('treeView').classList.remove('hidden');
-        $('codeControls').classList.add('hidden');
-        if (lastResult) renderTreeView(lastResult);
-        // Close edit mode & find
-        editMode = false;
-        closeFindBar();
+        if (treeEl) treeEl.style.display = 'none';
+        if (aceEl) aceEl.classList.remove('hidden');
+        if (rightBar) rightBar.style.display = 'flex';
     }
-    log('action', `View: ${view}`);
 }
-
-// --- Tree view rendering ---
 
 function treeToggleId() { return 'tn_' + (++treeIdCounter); }
 let treeIdCounter = 0;
@@ -549,275 +289,11 @@ function treeToggle(id, el) {
 
 // --- Find & Replace ---
 
-let findState = { open: false, regex: false, caseSensitive: false, matches: [], currentIdx: -1 };
-
-function toggleFindBar() {
-    if (currentView !== 'json') { log('warn', 'Find is available in Code view only'); return; }
-    findState.open ? closeFindBar() : openFindBar();
-}
-
-function openFindBar() {
-    findState.open = true;
-    $('findBar').classList.remove('hidden');
-    const ta = $('preview');
-    // Pre-fill with selected text
-    if (editMode && ta.selectionStart !== ta.selectionEnd) {
-        $('findInput').value = ta.value.substring(ta.selectionStart, ta.selectionEnd);
-    } else {
-        $('findInput').select();
-    }
-    $('findInput').focus();
-    runFind();
-    log('action', 'Find bar opened');
-}
-
-function closeFindBar() {
-    findState.open = false;
-    findState.matches = [];
-    findState.currentIdx = -1;
-    $('findBar').classList.add('hidden');
-    clearFindHighlights();
-    log('action', 'Find bar closed');
-}
-
-function toggleFindOption(opt) {
-    if (opt === 'regex') {
-        findState.regex = !findState.regex;
-        $('findRegexBtn').classList.toggle('active', findState.regex);
-    } else if (opt === 'case') {
-        findState.caseSensitive = !findState.caseSensitive;
-        $('findCaseBtn').classList.toggle('active', findState.caseSensitive);
-    }
-    runFind();
-}
-
-function getFindRegex() {
-    const query = $('findInput').value;
-    if (!query) return null;
-    try {
-        const flags = findState.caseSensitive ? 'g' : 'gi';
-        return findState.regex ? new RegExp(query, flags) : new RegExp(escapeRegex(query), flags);
-    } catch { return null; }
-}
-
-function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-
-function runFind() {
-    clearFindHighlights();
-    findState.matches = [];
-    findState.currentIdx = -1;
-    const countEl = $('findCount');
-    const regex = getFindRegex();
-    if (!regex) { countEl.textContent = ''; return; }
-
-    const text = editMode ? $('preview').value : ($('highlightCode').textContent || '');
-    let m;
-    while ((m = regex.exec(text)) !== null) {
-        findState.matches.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
-        if (findState.matches.length > 10000) break; // safety
-    }
-
-    if (findState.matches.length === 0) {
-        countEl.textContent = 'No results';
-        return;
-    }
-    findState.currentIdx = 0;
-    updateFindCount();
-    highlightFindMatches();
-    scrollToMatch(0);
-}
-
-function updateFindCount() {
-    const total = findState.matches.length;
-    const cur = findState.currentIdx >= 0 ? findState.currentIdx + 1 : 0;
-    $('findCount').textContent = total > 0 ? `${cur} / ${total}` : 'No results';
-}
-
-function findNext() {
-    if (findState.matches.length === 0) return;
-    findState.currentIdx = (findState.currentIdx + 1) % findState.matches.length;
-    updateFindCount();
-    highlightFindMatches();
-    scrollToMatch(findState.currentIdx);
-}
-
-function findPrev() {
-    if (findState.matches.length === 0) return;
-    findState.currentIdx = (findState.currentIdx - 1 + findState.matches.length) % findState.matches.length;
-    updateFindCount();
-    highlightFindMatches();
-    scrollToMatch(findState.currentIdx);
-}
-
-function clearFindHighlights() {
-    if (editMode) {
-        // For textarea, remove any temp highlight spans
-        const ta = $('preview');
-        ta.style.backgroundImage = '';
-    } else {
-        // Re-render highlight to clear marks
-        if (lastResult) {
-            const json = JSON.stringify(lastResult, null, '\t');
-            renderHighlight(json);
-        }
-    }
-}
-
-function highlightFindMatches() {
-    if (editMode) return; // textarea highlighting handled by scroll-to-match
-    // In read-only mode, we highlight by re-rendering with marks
-    const text = $('highlightCode').textContent;
-    if (!text || findState.matches.length === 0) return;
-
-    let html = '';
-    let lastIdx = 0;
-    const sorted = [...findState.matches].sort((a, b) => a.start - b.start);
-    for (let i = 0; i < sorted.length; i++) {
-        const m = sorted[i];
-        if (m.start < lastIdx) continue; // skip overlapping
-        html += escHtml(text.substring(lastIdx, m.start));
-        const cls = i === findState.currentIdx ? 'find-match-current' : 'find-match';
-        html += `<mark class="${cls}">${escHtml(text.substring(m.start, m.end))}</mark>`;
-        lastIdx = m.end;
-    }
-    html += escHtml(text.substring(lastIdx));
-    $('highlightCode').innerHTML = html;
-}
-
-function scrollToMatch(idx) {
-    if (idx < 0 || idx >= findState.matches.length) return;
-    if (editMode) {
-        const ta = $('preview');
-        const m = findState.matches[idx];
-        ta.focus();
-        ta.setSelectionRange(m.start, m.end);
-        // Scroll into view
-        const linesBefore = ta.value.substring(0, m.start).split('\n').length;
-        const lineHeight = parseFloat(getComputedStyle(ta).lineHeight);
-        ta.scrollTop = Math.max(0, (linesBefore - 5) * lineHeight);
-    } else {
-        // Scroll to highlighted mark in pre
-        const mark = $('highlightCode').querySelector('.find-match-current');
-        if (mark) mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-}
-
-function findReplaceOne() {
-    if (!editMode || findState.matches.length === 0) return;
-    const ta = $('preview');
-    const m = findState.matches[findState.currentIdx];
-    if (!m) return;
-    const replacement = $('findReplaceInput').value;
-    ta.setRangeText(replacement, m.start, m.end, 'select');
-    log('action', `Replaced: "${m.text}" → "${replacement}"`);
-    // Rebuild text and re-find
-    saveCache(ta.value);
-    runFind();
-}
-
-function findReplaceAll() {
-    if (!editMode || findState.matches.length === 0) return;
-    const ta = $('preview');
-    const regex = getFindRegex();
-    if (!regex) return;
-    const replacement = $('findReplaceInput').value;
-    const count = findState.matches.length;
-    ta.value = ta.value.replace(regex, replacement);
-    log('action', `Replaced ${count} occurrence(s)`);
-    saveCache(ta.value);
-    runFind();
-}
-
-// --- Keyboard shortcuts ---
-
-document.addEventListener('keydown', e => {
-    const ta = $('preview');
-    const isTextarea = document.activeElement === ta;
-
-    // Autocomplete navigation (up/down/enter/escape)
-    if (acState.active && isTextarea) {
-        if (e.key === 'ArrowDown') { e.preventDefault(); navigateAutocomplete(1); return; }
-        if (e.key === 'ArrowUp') { e.preventDefault(); navigateAutocomplete(-1); return; }
-        if (e.key === 'Enter' && acState.items.length > 0) { e.preventDefault(); acceptAutocomplete(acState.selectedIdx); return; }
-        if (e.key === 'Tab' && acState.items.length > 0) { e.preventDefault(); acceptAutocomplete(acState.selectedIdx); return; }
-        if (e.key === 'Escape') { e.preventDefault(); closeAutocomplete(); return; }
-    }
-
-    // Ctrl+F / Cmd+F — open find
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
-        if (currentView === 'json' && !$('editorContent').classList.contains('hidden')) {
-            e.preventDefault();
-            openFindBar();
-        }
-    }
-    // Ctrl+E / Cmd+E — toggle edit
-    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-        if (currentView === 'json' && !$('editorContent').classList.contains('hidden')) {
-            e.preventDefault();
-            toggleEditMode();
-        }
-    }
-    // Shift+Alt+F — beautify
-    if (e.shiftKey && e.altKey && e.key === 'F') {
-        if (currentView === 'json' && !$('editorContent').classList.contains('hidden')) {
-            e.preventDefault();
-            beautifyJSON();
-        }
-    }
-    // Escape — close find bar or autocomplete
-    if (e.key === 'Escape') {
-        if (findState.open) { e.preventDefault(); closeFindBar(); }
-        else if (acState.active) { e.preventDefault(); closeAutocomplete(); }
-    }
-    // Enter in find input — next
-    if (e.key === 'Enter' && document.activeElement === $('findInput')) {
-        e.preventDefault();
-        if (e.shiftKey) findPrev(); else findNext();
-    }
-    // Enter in replace input — replace one
-    if (e.key === 'Enter' && document.activeElement === $('findReplaceInput')) {
-        e.preventDefault();
-        findReplaceOne();
-    }
-    // Tab in textarea — insert tab (2 spaces)
-    if (e.key === 'Tab' && isTextarea && !acState.active) {
-        e.preventDefault();
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        ta.setRangeText('  ', start, end, 'end');
-        saveCache(ta.value);
-    }
-});
-
-// --- Textarea input handler for autocomplete ---
-
-document.addEventListener('DOMContentLoaded', () => {
-    const ta = $('preview');
-    if (ta) {
-        ta.addEventListener('input', () => {
-            if (!editMode) return;
-            const info = getCursorInfo(ta);
-            if (info.inString && info.word.length >= 1) {
-                triggerAutocomplete();
-            } else {
-                closeAutocomplete();
-            }
-            // Live update line numbers
-            updateLineNumbers(ta.value);
-        });
-        ta.addEventListener('blur', () => {
-            // Delay to allow autocomplete click
-            setTimeout(closeAutocomplete, 200);
-        });
-    }
-});
-
-// --- Theme toggle ---
-
 function toggleTheme() {
     const body = document.body;
     body.classList.toggle('light');
     localStorage.setItem('9router_theme', body.classList.contains('light') ? 'light' : 'dark');
+    updateAceTheme();
     log('action', `Theme: ${body.classList.contains('light') ? 'light' : 'dark'}`);
 }
 
@@ -1186,15 +662,12 @@ function showResult(data, total) {
     $('modelCount').textContent = total + ' models';
     if (currentView === 'tree') {
         renderTreeView(data);
-    } else {
-        renderHighlight(json);
-        updateLineNumbers(json);
+    } else if (aceEditor) {
+        aceEditor.setValue(json, -1);
+        aceEditor.clearSelection();
     }
-    $('preview').value = json;
     editMode = false;
-    $('editorHighlight').classList.add('hidden');
-    $('preview').classList.add('hidden');
-    if (currentView === 'json') $('editorHighlight').classList.remove('hidden');
+    if (aceEditor) aceEditor.setReadOnly(true);
     $('editModeIcon').textContent = 'edit';
     $('editModeLabel').textContent = 'Edit';
     $('editBtn').classList.remove('active');
@@ -1220,7 +693,7 @@ function loadCache() {
         $('editorContent').classList.remove('hidden');
         lastResult = JSON.parse(cached);
         switchView(currentView);
-        $('preview').value = cached;
+        if (aceEditor) { aceEditor.setValue(cached, -1); aceEditor.clearSelection(); }
         showCacheBar();
         let count = 0;
         if (Array.isArray(lastResult)) {
@@ -1259,11 +732,9 @@ function showCacheBar() {
 
 function clearCache() {
     localStorage.removeItem(CACHE_KEY);
-    $('preview').value = '';
+    if (aceEditor) aceEditor.setValue('', -1);
     $('editorEmpty').classList.remove('hidden');
     $('editorContent').classList.add('hidden');
-    $('lineNumbers').innerHTML = '';
-    $('highlightCode').innerHTML = '';
     $('cacheBar').classList.add('hidden');
     $('modelCount').classList.add('hidden');
     lastResult = null;
@@ -1331,7 +802,7 @@ async function fetchSingleEndpoint(id) {
 
     } catch (e) {
         let msg = e.message || String(e);
-        if (msg.includes('Failed to fetch')) msg += ' � Server may be offline or CORS blocked';
+        if (msg.includes('Failed to fetch')) msg += ' ï¿½ Server may be offline or CORS blocked';
         setEndpointStatus(id, 'err', msg);
         log('error', `Endpoint #${id}: ${msg}`);
         return null;
@@ -1417,7 +888,7 @@ function runPaste() {
 // --- Download / Copy ---
 
 function download() {
-    const json = $('preview').value.trim();
+    const json = aceEditor ? aceEditor.getValue().trim() : (lastResult ? JSON.stringify(lastResult, null, '\t') : '');
     if (!json) { log('warn', 'Nothing to download'); return; }
     const outFile = $('pastePanel').classList.contains('hidden')
         ? ($('outputFile').value.trim() || 'chatLanguageModels.json')
@@ -1432,7 +903,7 @@ function download() {
 }
 
 async function copyToClipboard() {
-    const json = $('preview').value.trim();
+    const json = aceEditor ? aceEditor.getValue().trim() : (lastResult ? JSON.stringify(lastResult, null, '\t') : '');
     if (!json) { log('warn', 'Nothing to copy'); return; }
     try {
         await navigator.clipboard.writeText(json);
@@ -1445,8 +916,8 @@ async function copyToClipboard() {
 // --- Download scripts ---
 
 const SCRIPT_MODES = [
-    { key: 'fetch', icon: 'download', label: 'Fetch Only', desc: 'Fetches from /v1/models → models_raw.json', files: { windows: 'fetch_models.bat', macos: 'fetch_models.sh', linux: 'fetch_models.sh', python: 'fetch_models.py' } },
-    { key: 'convert', icon: 'code', label: 'Convert Only', desc: 'Converts models_raw.json → chatLanguageModels.json', files: { windows: 'convert_models.bat', macos: 'convert_models.sh', linux: 'convert_models.sh', python: 'convert_models.py' } },
+    { key: 'fetch', icon: 'download', label: 'Fetch Only', desc: 'Fetches from /v1/models â†’ models_raw.json', files: { windows: 'fetch_models.bat', macos: 'fetch_models.sh', linux: 'fetch_models.sh', python: 'fetch_models.py' } },
+    { key: 'convert', icon: 'code', label: 'Convert Only', desc: 'Converts models_raw.json â†’ chatLanguageModels.json', files: { windows: 'convert_models.bat', macos: 'convert_models.sh', linux: 'convert_models.sh', python: 'convert_models.py' } },
     { key: 'combined', icon: 'bolt', label: 'Combined', desc: 'Fetch + Convert in one step', files: { windows: 'fetch_and_convert.bat', macos: 'fetch_and_convert.sh', linux: 'fetch_and_convert.sh', python: 'fetch_and_convert.py' } },
 ];
 
@@ -1503,7 +974,7 @@ function initScriptPanel() {
         <div class="scripts-os-section">
             <div class="scripts-os-header">
                 <div class="scripts-os-label"><span class="material-symbols-outlined">settings_suggest</span> Operating System</div>
-                <div class="scripts-os-detected"><span class="material-symbols-outlined">check_circle</span> Auto-detected: <strong>${detected ? detected.label : '—'}</strong></div>
+                <div class="scripts-os-detected"><span class="material-symbols-outlined">check_circle</span> Auto-detected: <strong>${detected ? detected.label : 'â€”'}</strong></div>
             </div>
             <div class="scripts-os-items">${osItems}</div>
             <div class="scripts-footer">
@@ -1587,7 +1058,7 @@ function updateScriptUI() {
         modeAllIcon.textContent = modeCount === SCRIPT_MODES.length ? 'check_box' : modeCount > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank';
     }
 
-    // Download button: total = osCount × modeCount
+    // Download button: total = osCount Ã— modeCount
     const total = osCount * modeCount;
     const btn = $('scriptDlAllBtn');
     const cnt = $('scriptDlCount');
@@ -1713,10 +1184,10 @@ function initDocsPanel() {
 <p>VSCode Modelator bridges any OpenAI-compatible <code>/v1/models</code> endpoint to VS Code Copilot Chat as a custom model provider.</p>
 <h3>Workflow</h3>
 <ol>
-<li><strong>Add Endpoint</strong> — Go to <span class="docs-kbd">Form</span> panel, enter your API URL and key</li>
-<li><strong>Fetch & Convert</strong> — Click <span class="docs-kbd">Fetch All &amp; Merge</span> to pull models and convert</li>
-<li><strong>Review</strong> — Switch to <span class="docs-kbd">Editor</span> panel to inspect the generated JSON</li>
-<li><strong>Download</strong> — Save as <code>chatLanguageModels.json</code> and place in your VS Code user directory</li>
+<li><strong>Add Endpoint</strong> â€” Go to <span class="docs-kbd">Form</span> panel, enter your API URL and key</li>
+<li><strong>Fetch & Convert</strong> â€” Click <span class="docs-kbd">Fetch All &amp; Merge</span> to pull models and convert</li>
+<li><strong>Review</strong> â€” Switch to <span class="docs-kbd">Editor</span> panel to inspect the generated JSON</li>
+<li><strong>Download</strong> â€” Save as <code>chatLanguageModels.json</code> and place in your VS Code user directory</li>
 </ol>
 </div>
 
@@ -1734,10 +1205,10 @@ function initDocsPanel() {
 <div class="docs-section">
 <h2><span class="material-symbols-outlined">keyboard</span> Keyboard Shortcuts</h2>
 <ul>
-<li><span class="docs-kbd">Ctrl+E</span> — Toggle edit mode in the editor</li>
-<li><span class="docs-kbd">Ctrl+F</span> — Open Find &amp; Replace bar</li>
-<li><span class="docs-kbd">Shift+Alt+F</span> — Format / Beautify JSON</li>
-<li><span class="docs-kbd">Escape</span> — Close Find bar</li>
+<li><span class="docs-kbd">Ctrl+E</span> â€” Toggle edit mode in the editor</li>
+<li><span class="docs-kbd">Ctrl+F</span> â€” Open Find &amp; Replace bar</li>
+<li><span class="docs-kbd">Shift+Alt+F</span> â€” Format / Beautify JSON</li>
+<li><span class="docs-kbd">Escape</span> â€” Close Find bar</li>
 </ul>
 </div>
 
@@ -1745,10 +1216,10 @@ function initDocsPanel() {
 <h2><span class="material-symbols-outlined">settings</span> Supported Endpoint Formats</h2>
 <p>The tool automatically detects and normalizes various response formats:</p>
 <ul>
-<li><strong>OpenAI standard</strong> — <code>{"object":"list","data":[...]}</code></li>
-<li><strong>Capabilities format</strong> — <code>{"id":"model","capabilities":{...}}</code></li>
-<li><strong>Flat list</strong> — <code>[{"id":"model1"},...]</code></li>
-<li><strong>Vercel AI SDK</strong> — <code>{"models":[...]}</code></li>
+<li><strong>OpenAI standard</strong> â€” <code>{"object":"list","data":[...]}</code></li>
+<li><strong>Capabilities format</strong> â€” <code>{"id":"model","capabilities":{...}}</code></li>
+<li><strong>Flat list</strong> â€” <code>[{"id":"model1"},...]</code></li>
+<li><strong>Vercel AI SDK</strong> â€” <code>{"models":[...]}</code></li>
 </ul>
 </div>
 
@@ -1773,46 +1244,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load endpoints
     loadEndpoints();
 
-    // Auto-save textarea edits
-    const preview = $('preview');
-    let saveTimer;
-    preview.addEventListener('input', () => {
-        const val = preview.value || '';
-        const lines = val.split('\n').length;
-        let html = '';
-        for (let i = 1; i <= lines; i++) html += '<span>' + i + '</span>';
-        $('lineNumbers').innerHTML = html;
-        if (editMode) {
-            renderHighlight(val);
-        }
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            const trimmed = val.trim();
-            if (trimmed) {
-                try { JSON.parse(trimmed); saveCache(trimmed); lastResult = JSON.parse(trimmed); } catch {}
-            }
-        }, 500);
-    });
-
-    // Scroll sync: textarea → highlight + line-numbers (edit mode)
-    preview.addEventListener('scroll', () => {
-        if (!editMode) return;
-        const h = $('editorHighlight');
-        const ln = $('lineNumbers');
-        h.scrollTop = preview.scrollTop;
-        h.scrollLeft = preview.scrollLeft;
-        if (ln) ln.scrollTop = preview.scrollTop;
-    });
+    // Init Ace editor
+    initAce();
 
     // Enter key triggers fetch
     document.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey && !$('fetchBtn').disabled
             && !$('fetchPanel').classList.contains('hidden')) runFetchAll();
     });
-
-    // Find input live search
-    $('findInput').addEventListener('input', runFind);
-
     // Upload zone drag-and-drop
     const zone = $('uploadZone');
     if (zone) {

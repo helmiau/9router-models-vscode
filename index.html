@@ -7,6 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%239eb7ff' font-family='system-ui'>⚡</text></svg>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.min.js"></script>
 </head>
 <body>
     <!-- TOP BAR -->
@@ -117,68 +118,45 @@
         </div>
         <!-- EDITOR PANEL -->
         <div class="content-panel hidden" id="panelEditor">
-        <div class="side-panel" id="sidePanel">
-            <div class="panel-header">
-                <div class="panel-header-left">
-                    <span class="material-symbols-outlined panel-header-icon">data_object</span>
-                    <span class="panel-header-title">chatLanguageModels.json</span>
-                    <span class="panel-header-badge hidden" id="modelCount"></span>
-                </div>
-                <div class="panel-header-actions">
-                    <button class="panel-btn" onclick="toggleSidePanel()" title="Collapse panel"><span class="material-symbols-outlined">left_panel_close</span></button>
-                    <button class="panel-btn" onclick="copyToClipboard()" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                    <button class="panel-btn" onclick="download()" title="Download"><span class="material-symbols-outlined">download</span></button>
-                </div>
-            </div>
-            <div class="panel-body" id="editorBody">
-                <div class="editor-empty" id="editorEmpty">
-                    <span class="material-symbols-outlined editor-empty-icon">code_off</span>
-                    <span>Output will appear here after conversion</span>
-                </div>
-                <div class="editor-content hidden" id="editorContent">
-                    <div class="editor-toolbar">
-                        <div class="editor-toolbar-left">
-                            <button class="editor-view-btn" id="btnViewJson" onclick="switchView('json')" title="Code view"><span class="material-symbols-outlined">data_object</span><span class="editor-view-label">Code</span></button>
-                            <button class="editor-view-btn active" id="btnViewTree" onclick="switchView('tree')" title="Tree view"><span class="material-symbols-outlined">account_tree</span><span class="editor-view-label">Tree</span></button>
-                        </div>
+            <div class="side-panel" id="sidePanel">
+                <div class="panel-header">
+                    <div class="panel-header-left">
+                        <span class="material-symbols-outlined panel-header-icon">data_object</span>
+                        <span class="panel-header-title">chatLanguageModels.json</span>
+                        <span class="panel-header-badge hidden" id="modelCount"></span>
                     </div>
-                    <div class="editor-code-wrap" id="editorCodeWrap">
-                        <div class="code-controls" id="codeControls">
-                            <button class="editor-view-btn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)" id="editBtn"><span class="material-symbols-outlined" id="editModeIcon">edit</span><span class="editor-view-label" id="editModeLabel">Edit</span></button>
-                            <button class="editor-view-btn" onclick="beautifyJSON()" title="Format JSON (Shift+Alt+F)" id="beautifyBtn"><span class="material-symbols-outlined">auto_fix_high</span><span class="editor-view-label">Format</span></button>
-                            <button class="editor-view-btn" onclick="toggleFindBar()" title="Find & Replace (Ctrl+F)" id="findBtn"><span class="material-symbols-outlined">find_replace</span><span class="editor-view-label">Find</span></button>
-                        </div>
-                        <div class="find-bar hidden" id="findBar">
-                            <div class="find-row find-main-row">
-                                <span class="material-symbols-outlined find-icon">search</span>
-                                <input type="text" id="findInput" class="find-input" placeholder="Find" autocomplete="off" spellcheck="false">
-                                <span class="find-count" id="findCount"></span>
-                                <button class="find-btn" onclick="findPrev()" title="Previous (Shift+Enter)"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
-                                <button class="find-btn" onclick="findNext()" title="Next (Enter)"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
-                                <button class="find-btn" id="findRegexBtn" onclick="toggleFindOption('regex')" title="Regex (Alt+R)"><span class="find-opt-icon">.*</span></button>
-                                <button class="find-btn" id="findCaseBtn" onclick="toggleFindOption('case')" title="Match Case (Alt+C)"><span class="find-opt-icon">Aa</span></button>
-                                <button class="find-btn find-close" onclick="closeFindBar()" title="Close (Escape)"><span class="material-symbols-outlined">close</span></button>
+                    <div class="panel-header-actions">
+                        <button class="panel-btn" onclick="toggleSidePanel()" title="Collapse panel"><span class="material-symbols-outlined">left_panel_close</span></button>
+                        <button class="panel-btn" onclick="copyToClipboard()" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                        <button class="panel-btn" onclick="download()" title="Download"><span class="material-symbols-outlined">download</span></button>
+                    </div>
+                </div>
+                <div class="panel-body" id="editorBody">
+                    <div class="editor-empty" id="editorEmpty">
+                        <span class="material-symbols-outlined editor-empty-icon">code_off</span>
+                        <span>Output will appear after conversion</span>
+                    </div>
+                    <div class="editor-content hidden" id="editorContent">
+                        <div class="editor-toolbar">
+                            <div class="editor-toolbar-left">
+                                <button class="editor-view-btn active" id="btnViewTree" onclick="switchView('tree')" title="Tree view"><span class="material-symbols-outlined">account_tree</span><span class="editor-view-label">Tree</span></button>
+                                <button class="editor-view-btn" id="btnViewJson" onclick="switchView('json')" title="Code view"><span class="material-symbols-outlined">data_object</span><span class="editor-view-label">Code</span></button>
                             </div>
-                            <div class="find-row find-replace-row">
-                                <span class="material-symbols-outlined find-icon">swap_vert</span>
-                                <input type="text" id="findReplaceInput" class="find-input" placeholder="Replace" autocomplete="off" spellcheck="false">
-                                <button class="find-btn" onclick="findReplaceOne()" title="Replace"><span class="material-symbols-outlined">find_replace</span></button>
-                                <button class="find-btn" onclick="findReplaceAll()" title="Replace All"><span class="material-symbols-outlined">done_all</span></button>
+                            <div class="editor-toolbar-right" id="editorToolbarRight">
+                                <button class="editor-view-btn" id="editBtn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)"><span class="material-symbols-outlined" id="editModeIcon">edit</span><span class="editor-view-label" id="editModeLabel">Edit</span></button>
+                                <button class="editor-view-btn" onclick="formatAce()" title="Format JSON (Shift+Alt+F)"><span class="material-symbols-outlined">auto_fix_high</span><span class="editor-view-label">Format</span></button>
                             </div>
                         </div>
-                        <div class="line-numbers" id="lineNumbers"></div>
-                        <pre class="editor-highlight" id="editorHighlight"><code id="highlightCode"></code></pre>
-                        <textarea id="preview" class="editor-textarea hidden" spellcheck="false" aria-label="JSON editor"></textarea>
-                        <div class="autocomplete-dropdown hidden" id="autocompleteDropdown"></div>
-                    </div>
-                    <div class="tree-view hidden" id="treeView"></div>
-                    <div class="editor-cache-bar hidden" id="cacheBar">
-                        <span id="cacheInfo">Cached locally</span>
-                        <button class="editor-cache-clear" onclick="clearCache()"><span class="material-symbols-outlined">delete</span> Clear</button>
+                        <div id="aceEditor" class="hidden"></div>
+                        <div class="tree-view" id="treeView"></div>
+                        <div class="editor-cache-bar hidden" id="cacheBar">
+                            <span class="material-symbols-outlined cache-bar-icon">cloud_off</span>
+                            <span id="cacheInfo">Cached locally</span>
+                            <button class="editor-cache-clear" onclick="clearCache()"><span class="material-symbols-outlined">delete</span> Clear</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         </div>
         <!-- SCRIPTS PANEL -->
         <div class="content-panel hidden" id="panelScripts">
