@@ -6,6 +6,9 @@
     <title>VSCode Modelator — OpenAI-compatible Model Converter</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%239eb7ff' font-family='system-ui'>⚡</text></svg>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="assets/style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.min.js"></script>
 </head>
@@ -22,6 +25,9 @@
     <div class="app-wrapper" id="appWrapper">
     <!-- SIDEBAR NAV (Astryx SideNav pattern) -->
     <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar"><span class="material-symbols-outlined" id="sidebarToggleIcon">menu_open</span><span class="sidebar-label sidebar-collapse-label">Collapse</span></button>
+        </div>
         <div class="sidebar-nav">
             <!-- Section: Navigation -->
             <div class="sidebar-section">
@@ -35,11 +41,11 @@
                 <span class="sidebar-section-heading">Utilities</span>
                 <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label">Log</span></button>
                 <button class="sidebar-item" data-panel="docs" onclick="switchPanel('docs')" title="Documentation"><span class="material-symbols-outlined sidebar-icon-outline">menu_book</span><span class="material-symbols-outlined sidebar-icon-filled">menu_book</span><span class="sidebar-label">Docs</span></button>
+                <button class="sidebar-item" data-panel="about" onclick="switchPanel('about')" title="About"><span class="material-symbols-outlined sidebar-icon-outline">info</span><span class="material-symbols-outlined sidebar-icon-filled">info</span><span class="sidebar-label">About</span></button>
             </div>
         </div>
         <div class="sidebar-bottom">
-            <button class="sidebar-item" onclick="toggleTheme()" title="Toggle theme"><span class="material-symbols-outlined sidebar-icon-outline icon-dark">dark_mode</span><span class="material-symbols-outlined sidebar-icon-outline icon-light">light_mode</span><span class="sidebar-label">Theme</span></button>
-            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar"><span class="material-symbols-outlined" id="sidebarToggleIcon">menu_open</span><span class="sidebar-label sidebar-collapse-label">Collapse</span></button>
+            <button class="sidebar-item" id="sidebarThemeBtn" onclick="toggleTheme()" title="Toggle theme"><span class="material-symbols-outlined sidebar-icon-outline icon-dark">dark_mode</span><span class="material-symbols-outlined sidebar-icon-outline icon-light">light_mode</span><span class="sidebar-label">Theme</span></button>
         </div>
     </nav>
     <!-- CONTENT AREA -->
@@ -143,7 +149,24 @@
                             </div>
                             <div class="editor-toolbar-right" id="editorToolbarRight">
                                 <button class="editor-view-btn" id="editBtn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)"><span class="material-symbols-outlined" id="editModeIcon">edit</span><span class="editor-view-label" id="editModeLabel">Edit</span></button>
-                                <button class="editor-view-btn" onclick="formatAce()" title="Format JSON (Shift+Alt+F)"><span class="material-symbols-outlined">auto_fix_high</span><span class="editor-view-label">Format</span></button>
+                                <button class="editor-view-btn" id="findReplaceBtn" onclick="toggleFindBar()" title="Find & Replace (Ctrl+H)"><span class="material-symbols-outlined">find_replace</span><span class="editor-view-label">Find</span></button>
+                            </div>
+                        </div>
+                        <div class="findbar hidden" id="findBar">
+                            <div class="findbar-row">
+                                <span class="material-symbols-outlined findbar-icon">search</span>
+                                <input type="text" class="findbar-input" id="findInput" placeholder="Find..." autocomplete="off">
+                                <span class="findbar-count" id="findCount"></span>
+                                <button class="editor-tool-btn" onclick="findPrev()" title="Previous (Shift+Enter)"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+                                <button class="editor-tool-btn" onclick="findNext()" title="Next (Enter)"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+                                <button class="editor-tool-btn" onclick="toggleReplaceRow()" id="toggleReplaceBtn" title="Toggle replace"><span class="material-symbols-outlined">expand_more</span></button>
+                                <button class="editor-tool-btn" onclick="closeFindBar()" title="Close (Esc)"><span class="material-symbols-outlined">close</span></button>
+                            </div>
+                            <div class="findbar-row findbar-replace hidden" id="replaceRow">
+                                <span class="material-symbols-outlined findbar-icon">find_replace</span>
+                                <input type="text" class="findbar-input" id="replaceInput" placeholder="Replace..." autocomplete="off">
+                                <button class="editor-tool-btn" onclick="replaceOne()" title="Replace"><span class="material-symbols-outlined">check</span></button>
+                                <button class="editor-tool-btn" onclick="replaceAll()" title="Replace all"><span class="material-symbols-outlined">done_all</span></button>
                             </div>
                         </div>
                         <div id="aceEditor" class="hidden"></div>
@@ -192,10 +215,15 @@
         </div>
         <!-- DOCS PANEL -->
         <div class="content-panel hidden" id="panelDocs">
-            <div class="docs-panel" id="docsContent"></div>
+            <div class="info-panel" id="docsContent"></div>
+        </div>
+        <!-- ABOUT PANEL -->
+        <div class="content-panel hidden" id="panelAbout">
+            <div class="info-panel" id="aboutContent"></div>
         </div>
     </div>
     </div>
+    <div id="toastContainer" class="toast-container"></div>
     <script src="assets/app.js"></script>
 </body>
 </html>

@@ -30,9 +30,11 @@ function copyField(id) {
     if (!el) return;
     const text = el.value;
     if (!text) { log('warn', 'Nothing to copy'); return; }
+    const btn = el.closest('.input-row')?.querySelector('.copy-btn') || el.closest('.endpoint-row')?.querySelector('.copy-btn');
+    if (btn) animateIcon(btn, 'icon-check');
     navigator.clipboard.writeText(text).then(() => {
         log('info', `Copied from #${id}`);
-    }).catch(() => { log('warn', 'Clipboard access denied'); });
+    }).catch(() => { if (btn) animateIcon(btn, 'icon-shake'); log('warn', 'Clipboard access denied'); });
 }
 
 // --- Logging ---
@@ -54,6 +56,29 @@ function log(type, msg) {
     $('logCount').textContent = logEntries.length;
 }
 
+/* Toast notification — snackbar at bottom-center */
+function showToast(type, msg, durationMs = 3000) {
+    const container = $('toastContainer');
+    if (!container) return;
+    const icons = { ok: 'check_circle', err: 'error', info: 'info' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<span class="material-symbols-outlined">${icons[type] || 'info'}</span><span>${escHtml(msg)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('toast-out');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, durationMs);
+}
+
+/* Icon micro-feedback: find .material-symbols-outlined inside el, animate it */
+function animateIcon(el, animClass) {
+    const icon = el?.querySelector?.('.material-symbols-outlined') || el;
+    if (!icon || icon.classList.contains(animClass)) return;
+    icon.classList.add(animClass);
+    icon.addEventListener('animationend', () => icon.classList.remove(animClass), { once: true });
+}
+
 function clearLog() {
     logEntries = [];
     const container = $('logEntries');
@@ -68,11 +93,20 @@ function escHtml(s) {
 // --- Panel controls ---
 
 function switchPanel(name) {
-    const panels = { form: 'panelForm', editor: 'panelEditor', scripts: 'panelScripts', log: 'panelLog', docs: 'panelDocs' };
+    const panels = { form: 'panelForm', editor: 'panelEditor', scripts: 'panelScripts', log: 'panelLog', docs: 'panelDocs', about: 'panelAbout' };
     Object.values(panels).forEach(id => $(id).classList.replace('active', 'hidden'));
-    $(panels[name]).classList.replace('hidden', 'active');
+    const entering = $(panels[name]);
+    entering.classList.replace('hidden', 'active');
+    entering.classList.remove('panel-fade-in');
+    void entering.offsetWidth;
+    entering.classList.add('panel-fade-in');
     document.querySelectorAll('.sidebar-item[data-panel]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.panel === name);
+        const isActive = btn.dataset.panel === name;
+        btn.classList.toggle('active', isActive);
+        if (isActive) {
+            const visibleIcon = btn.querySelector('.sidebar-icon-filled') || btn.querySelector('.sidebar-icon-outline');
+            if (visibleIcon) animateIcon(visibleIcon, 'icon-bounce');
+        }
     });
     log('action', `Switched to ${name} panel`);
 }
@@ -93,6 +127,7 @@ function toggleLogPanel() {
     panel.classList.toggle('collapsed');
     const icon = $('logToggleIcon');
     icon.textContent = panel.classList.contains('collapsed') ? 'expand_more' : 'expand_less';
+    animateIcon(icon, 'icon-bounce');
 }
 
 // --- Ace Editor ---
@@ -120,6 +155,8 @@ function initAce() {
     });
     aceEditor.commands.addCommand({ name: 'toggleEdit', bindKey: { win: 'Ctrl-E', mac: 'Cmd-E' }, exec: function() { toggleEditMode(); } });
     aceEditor.commands.addCommand({ name: 'formatJSON', bindKey: { win: 'Shift-Alt-F', mac: 'Shift-Alt-F' }, exec: function() { formatAce(); } });
+    aceEditor.commands.addCommand({ name: 'openFindReplace', bindKey: { win: 'Ctrl-H', mac: 'Cmd-Alt-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); toggleFindBar(); } });
+    aceEditor.commands.addCommand({ name: 'openFind', bindKey: { win: 'Ctrl-F', mac: 'Cmd-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); if ($('findBar').classList.contains('hidden')) toggleFindBar(); $('findInput').focus(); } });
     aceEditor.on('change', function() {
         if (!aceEditor.getReadOnly()) {
             const val = aceEditor.getValue();
@@ -149,6 +186,113 @@ function formatAce() {
     } catch (e) { log('error', 'Format failed: ' + e.message); }
 }
 
+// --- Find & Replace ---
+
+let findMarkers = [];
+let findActive = false;
+
+function toggleFindBar() {
+    const bar = $('findBar');
+    bar.classList.toggle('hidden');
+    findActive = !bar.classList.contains('hidden');
+    $('findReplaceBtn').classList.toggle('active', findActive);
+    if (findActive) {
+        $('findInput').focus();
+        const sel = aceEditor.getSelectedText();
+        if (sel) { $('findInput').value = sel; doFind(); }
+    } else {
+        clearFindMarkers();
+    }
+}
+
+function closeFindBar() {
+    $('findBar').classList.add('hidden');
+    findActive = false;
+    $('findReplaceBtn').classList.remove('active');
+    clearFindMarkers();
+    if (aceEditor) aceEditor.focus();
+}
+
+function toggleReplaceRow() {
+    $('replaceRow').classList.toggle('hidden');
+    const icon = $('toggleReplaceBtn').querySelector('.material-symbols-outlined');
+    icon.textContent = $('replaceRow').classList.contains('hidden') ? 'expand_more' : 'expand_less';
+}
+
+function clearFindMarkers() {
+    if (!aceEditor) return;
+    const session = aceEditor.getSession();
+    findMarkers.forEach(id => session.removeMarker(id));
+    findMarkers = [];
+    $('findCount').textContent = '';
+}
+
+function doFind() {
+    if (!aceEditor) return;
+    clearFindMarkers();
+    const query = $('findInput').value;
+    if (!query) { $('findCount').textContent = ''; return; }
+    const session = aceEditor.getSession();
+    const doc = session.getDocument();
+    const lines = doc.getAllLines();
+    const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let count = 0;
+    const Range = ace.require('ace/range').Range;
+    for (let i = 0; i < lines.length; i++) {
+        let m;
+        re.lastIndex = 0;
+        while ((m = re.exec(lines[i])) !== null) {
+            const range = new Range(i, m.index, i, m.index + m[0].length);
+            const markerId = session.highlight(range, 'findHighlight', 'text');
+            findMarkers.push(markerId);
+            count++;
+        }
+    }
+    $('findCount').textContent = count ? count + ' found' : 'No match';
+}
+
+function findNext() {
+    if (!aceEditor || !$('findInput').value) return;
+    aceEditor.findNext({ wrap: true, caseSensitive: false, wholeWord: false });
+    updateFindCount();
+}
+
+function findPrev() {
+    if (!aceEditor || !$('findInput').value) return;
+    aceEditor.findPrevious({ wrap: true, caseSensitive: false, wholeWord: false });
+    updateFindCount();
+}
+
+function updateFindCount() {
+    const match = aceEditor.getSelectionRange();
+    // We rely on Ace's built-in search count via status
+}
+
+function replaceOne() {
+    if (!aceEditor) return;
+    const find = $('findInput').value;
+    const repl = $('replaceInput').value;
+    if (!find) return;
+    const sel = aceEditor.getSelectedText();
+    if (sel.toLowerCase() === find.toLowerCase()) {
+        aceEditor.replace(repl);
+        doFind();
+        findNext();
+    } else {
+        findNext();
+    }
+}
+
+function replaceAll() {
+    if (!aceEditor) return;
+    const find = $('findInput').value;
+    const repl = $('replaceInput').value;
+    if (!find) return;
+    aceEditor.replaceAll(repl, { needle: find, caseSensitive: false });
+    doFind();
+    log('action', `Replaced all "${find}" with "${repl}"`);
+}
+
 function toggleEditMode() {
     if (currentView !== 'json' || !aceEditor) return;
     editMode = !editMode;
@@ -156,6 +300,7 @@ function toggleEditMode() {
     $('editModeIcon').textContent = editMode ? 'visibility' : 'edit';
     $('editModeLabel').textContent = editMode ? 'View' : 'Edit';
     $('editBtn').classList.toggle('active', editMode);
+    animateIcon($('editBtn'), 'icon-fadeswap');
     log('action', editMode ? 'Edit mode enabled' : 'Edit mode disabled');
 }
 
@@ -170,6 +315,7 @@ function switchView(view) {
         if (treeEl) treeEl.style.display = '';
         if (aceEl) aceEl.classList.add('hidden');
         if (rightBar) rightBar.style.display = 'none';
+        if (findActive) closeFindBar();
     } else {
         if (treeEl) treeEl.style.display = 'none';
         if (aceEl) aceEl.classList.remove('hidden');
@@ -295,6 +441,9 @@ function toggleTheme() {
     body.classList.toggle('light');
     localStorage.setItem('9router_theme', body.classList.contains('light') ? 'light' : 'dark');
     updateAceTheme();
+    const btn = $('sidebarThemeBtn');
+    const visibleIcon = body.classList.contains('light') ? btn.querySelector('.icon-light') : btn.querySelector('.icon-dark');
+    if (visibleIcon) animateIcon(visibleIcon, 'icon-fadeswap');
     log('action', `Theme: ${body.classList.contains('light') ? 'light' : 'dark'}`);
 }
 
@@ -306,7 +455,9 @@ function toggleTheme() {
 function setStatus(msg, type) {
     const el = $('status');
     el.textContent = msg;
-    el.className = 'status ' + type;
+    el.classList.remove('panel-fade-in', 'status-enter');
+    void el.offsetWidth;
+    el.className = 'status ' + type + ' status-enter';
 }
 
 // --- URL helpers ---
@@ -423,16 +574,24 @@ function addEndpoint(name, url, key, apiType) {
     $('endpointList').appendChild(row);
     saveEndpoints();
     log('action', `Added endpoint #${id}`);
+    animateIcon(row.querySelector('.endpoint-row-num .material-symbols-outlined'), 'icon-bounce');
     return row;
 }
 
 function removeEndpoint(id) {
     const row = $('endpointList').querySelector(`[data-id="${id}"]`);
     if (row) {
-        row.remove();
-        saveEndpoints();
-        log('action', `Removed endpoint #${id}`);
-        renumberEndpoints();
+        const closeBtn = row.querySelector('.panel-btn');
+        if (closeBtn) animateIcon(closeBtn, 'icon-shake');
+        row.style.transition = 'opacity 200ms ease, transform 200ms ease';
+        row.style.opacity = '0';
+        row.style.transform = 'scale(0.95)';
+        row.addEventListener('transitionend', () => {
+            row.remove();
+            saveEndpoints();
+            log('action', `Removed endpoint #${id}`);
+            renumberEndpoints();
+        }, { once: true });
     }
 }
 
@@ -657,8 +816,13 @@ function showResult(data, total) {
     const json = JSON.stringify(data, null, '\t');
     const providerCount = Array.isArray(data) ? data.length : 1;
     setStatus(`Done! Total: ${total} models from ${providerCount} endpoint(s)`, 'ok');
+    showToast('ok', `${total} models from ${providerCount} endpoint(s)`);
     $('editorEmpty').classList.add('hidden');
-    $('editorContent').classList.remove('hidden');
+    const ec = $('editorContent');
+    ec.classList.remove('hidden');
+    ec.classList.remove('crossfade-in');
+    void ec.offsetWidth;
+    ec.classList.add('crossfade-in');
     $('modelCount').classList.remove('hidden');
     $('modelCount').textContent = total + ' models';
     renderTreeView(data);
@@ -724,6 +888,9 @@ function showCacheBar() {
         }
         $('cacheInfo').textContent = `Cached: ${count} models (${kb} KB)`;
         bar.classList.remove('hidden');
+        bar.classList.remove('cache-slide-in');
+        void bar.offsetWidth;
+        bar.classList.add('cache-slide-in');
     } catch { bar.classList.add('hidden'); }
 }
 
@@ -737,7 +904,7 @@ function clearCache() {
     lastResult = null;
     setStatus('Cache cleared', 'info');
     log('action', 'Cache cleared');
-    setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 2000);
+    setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) { s.classList.add('status-exit'); s.addEventListener('animationend', () => { s.className = 'status'; s.classList.remove('status-exit'); }, { once: true }); } }, 2000);
 }
 
 // --- Tabs ---
@@ -745,8 +912,14 @@ function clearCache() {
 function switchTab(tab) {
     $('tabFetch').classList.toggle('active', tab === 'fetch');
     $('tabPaste').classList.toggle('active', tab === 'paste');
-    $('fetchPanel').classList.toggle('hidden', tab !== 'fetch');
-    $('pastePanel').classList.toggle('hidden', tab !== 'paste');
+    const entering = tab === 'fetch' ? $('fetchPanel') : $('pastePanel');
+    const leaving  = tab === 'fetch' ? $('pastePanel') : $('fetchPanel');
+    leaving.classList.add('hidden');
+    leaving.classList.remove('crossfade-in');
+    entering.classList.remove('hidden');
+    entering.classList.remove('crossfade-in');
+    void entering.offsetWidth;
+    entering.classList.add('crossfade-in');
     $('status').className = 'status';
     log('action', `Switched to ${tab} tab`);
 }
@@ -854,12 +1027,14 @@ async function runFetchAll() {
 
         if (allProviders.length === 0) {
             setStatus('All endpoints failed.', 'err');
+            showToast('err', 'All endpoints failed');
             log('error', 'All endpoints failed');
         } else {
             showResult(allProviders, totalModels);
         }
     } catch (e) {
         setStatus('Fetch error: ' + e.message, 'err');
+        showToast('err', e.message);
         log('error', 'Fetch failed: ' + e.message);
     } finally {
         btn.disabled = false;
@@ -871,11 +1046,11 @@ async function runFetchAll() {
 
 function runPaste() {
     const rawText = $('pasteInput').value.trim();
-    if (!rawText) { setStatus('Paste JSON response first.', 'err'); log('error', 'No JSON pasted'); return; }
+    if (!rawText) { setStatus('Paste JSON response first.', 'err'); showToast('err', 'Paste JSON first'); log('error', 'No JSON pasted'); return; }
 
     let raw;
-    try { raw = JSON.parse(rawText); } catch { setStatus('Invalid JSON.', 'err'); log('error', 'Invalid JSON pasted'); return; }
-    if (raw.object !== 'list') { setStatus('Invalid format: expected object="list".', 'err'); log('error', 'Invalid format: expected object="list"'); return; }
+    try { raw = JSON.parse(rawText); } catch { setStatus('Invalid JSON.', 'err'); showToast('err', 'Invalid JSON'); log('error', 'Invalid JSON pasted'); return; }
+    if (raw.object !== 'list') { setStatus('Invalid format: expected object="list".', 'err'); showToast('err', 'Expected object="list"'); log('error', 'Invalid format: expected object="list"'); return; }
 
     log('action', 'Converting pasted JSON');
     const modelsUrl = 'http://localhost:20128/v1';
@@ -888,6 +1063,8 @@ function runPaste() {
 function download() {
     const json = aceEditor ? aceEditor.getValue().trim() : (lastResult ? JSON.stringify(lastResult, null, '\t') : '');
     if (!json) { log('warn', 'Nothing to download'); return; }
+    const dlBtn = document.querySelector('.scripts-dl-all-btn') || $('downloadBtn');
+    if (dlBtn) animateIcon(dlBtn, 'icon-check');
     const outFile = $('pastePanel').classList.contains('hidden')
         ? ($('outputFile').value.trim() || 'chatLanguageModels.json')
         : ($('pasteOutputFile').value.trim() || 'chatLanguageModels.json');
@@ -907,8 +1084,10 @@ async function copyToClipboard() {
         await navigator.clipboard.writeText(json);
         setStatus('Copied to clipboard!', 'info');
         log('success', 'Copied to clipboard');
+        const copyBtn = document.querySelector('.scripts-dl-all-btn')?.previousElementSibling;
+        if (copyBtn) animateIcon(copyBtn, 'icon-check');
         setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 2000);
-    } catch { setStatus('Copy failed.', 'err'); log('error', 'Copy failed'); }
+    } catch { setStatus('Copy failed.', 'err'); log('error', 'Copy failed'); showToast('err', 'Copy failed'); }
 }
 
 // --- Download scripts ---
@@ -1178,58 +1357,105 @@ function initDocsPanel() {
     if (!el) return;
     el.innerHTML = `
 <div class="docs-section">
-<h2><span class="material-symbols-outlined">menu_book</span> Getting Started <span class="docs-badge">Quick Guide</span></h2>
-<p>VSCode Modelator bridges any OpenAI-compatible <code>/v1/models</code> endpoint to VS Code Copilot Chat as a custom model provider.</p>
-<h3>Workflow</h3>
+<h2><span class="material-symbols-outlined">menu_book</span> What It Does</h2>
+<p>VSCode Modelator fetches model lists from any OpenAI-compatible <code>/v1/models</code> endpoint and converts them into <code>chatLanguageModels.json</code> &#8212; the file VS Code reads to populate the Copilot Chat model picker.</p>
+<p>Single-file browser app. No server, no install, no analytics. The JSON output is the product.</p>
+</div>
+
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">bolt</span> How To Use It</h2>
 <ol>
-<li><strong>Add Endpoint</strong> â€” Go to <span class="docs-kbd">Form</span> panel, enter your API URL and key</li>
-<li><strong>Fetch & Convert</strong> â€” Click <span class="docs-kbd">Fetch All &amp; Merge</span> to pull models and convert</li>
-<li><strong>Review</strong> â€” Switch to <span class="docs-kbd">Editor</span> panel to inspect the generated JSON</li>
-<li><strong>Download</strong> â€” Save as <code>chatLanguageModels.json</code> and place in your VS Code user directory</li>
+<li><strong>Add an endpoint.</strong> In <span class="docs-kbd">Form</span>, paste the API base URL and authentication key. The URL should resolve to a <code>/v1/models</code> endpoint or its root.</li>
+<li><strong>Fetch.</strong> Click <span class="docs-kbd">Fetch All &amp; Merge</span>. Each endpoint is queried, responses normalized, and results merged into one list.</li>
+<li><strong>Inspect.</strong> Switch to <span class="docs-kbd">Editor</span>. Toggle between Tree and Code view. Edit mode enables direct modification of the JSON.</li>
+<li><strong>Save.</strong> Click <span class="docs-kbd">Download</span>. Place the file in your VS Code user directory (see paths below), restart VS Code.</li>
 </ol>
 </div>
 
 <div class="docs-section">
-<h2><span class="material-symbols-outlined">route</span> Alternative: Offline Scripts</h2>
-<p>If your machine cannot directly access the API (e.g. localhost restrictions), use the download scripts:</p>
+<h2><span class="material-symbols-outlined">route</span> When Direct Fetch Fails</h2>
+<p>Firewalls, localhost-only networks, and CORS policies can block browser requests. Use the offline path:</p>
 <ol>
-<li>Go to <span class="docs-kbd">Scripts</span> panel</li>
-<li>Select your <strong>Operating System</strong> and script mode</li>
-<li>Download and run the script on a machine with API access</li>
-<li>Bring the output <code>models_raw.json</code> back to the <strong>Paste JSON</strong> tab</li>
+<li>Open <span class="docs-kbd">Scripts</span></li>
+<li>Pick your OS and a mode (curl, Python, or PowerShell)</li>
+<li>Run the downloaded script on a machine with API access</li>
+<li>Copy the output JSON into the <span class="docs-kbd">Paste JSON</span> tab in the Editor panel</li>
 </ol>
 </div>
 
 <div class="docs-section">
 <h2><span class="material-symbols-outlined">keyboard</span> Keyboard Shortcuts</h2>
-<ul>
-<li><span class="docs-kbd">Ctrl+E</span> â€” Toggle edit mode in the editor</li>
-<li><span class="docs-kbd">Ctrl+F</span> â€” Open Find &amp; Replace bar</li>
-<li><span class="docs-kbd">Shift+Alt+F</span> â€” Format / Beautify JSON</li>
-<li><span class="docs-kbd">Escape</span> â€” Close Find bar</li>
-</ul>
+<table class="docs-table">
+<thead><tr><th>Key</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><span class="docs-kbd">Ctrl + E</span></td><td>Toggle edit mode</td></tr>
+<tr><td><span class="docs-kbd">Ctrl + F</span></td><td>Open Find &amp; Replace</td></tr>
+<tr><td><span class="docs-kbd">Shift + Alt + F</span></td><td>Format / pretty-print JSON</td></tr>
+<tr><td><span class="docs-kbd">Escape</span></td><td>Close Find bar</td></tr>
+</tbody>
+</table>
 </div>
 
 <div class="docs-section">
-<h2><span class="material-symbols-outlined">settings</span> Supported Endpoint Formats</h2>
-<p>The tool automatically detects and normalizes various response formats:</p>
+<h2><span class="material-symbols-outlined">settings</span> Response Formats</h2>
+<p>The converter normalizes these shapes automatically:</p>
 <ul>
-<li><strong>OpenAI standard</strong> â€” <code>{"object":"list","data":[...]}</code></li>
-<li><strong>Capabilities format</strong> â€” <code>{"id":"model","capabilities":{...}}</code></li>
-<li><strong>Flat list</strong> â€” <code>[{"id":"model1"},...]</code></li>
-<li><strong>Vercel AI SDK</strong> â€” <code>{"models":[...]}</code></li>
+<li><strong>OpenAI standard</strong> &#8212; <code>{"object":"list","data":[...]}</code></li>
+<li><strong>Capabilities envelope</strong> &#8212; <code>{"id":"model","capabilities":{...}}</code></li>
+<li><strong>Flat array</strong> &#8212; <code>[{"id":"model1"},...]</code></li>
+<li><strong>Vercel AI SDK</strong> &#8212; <code>{"models":[...]}</code></li>
 </ul>
+<p>Unrecognized formats still render in the editor &#8212; inspect and fix manually.</p>
 </div>
 
 <div class="docs-section">
-<h2><span class="material-symbols-outlined">info</span> VS Code Integration</h2>
-<p>Output file <code>chatLanguageModels.json</code> must be placed in your VS Code <strong>user settings directory</strong>:</p>
-<ul>
-<li><strong>Windows:</strong> <code>%APPDATA%\Code\User\</code></li>
-<li><strong>macOS:</strong> <code>~/Library/Application Support/Code/User/</code></li>
-<li><strong>Linux:</strong> <code>~/.config/Code/User/</code></li>
-</ul>
-<p>Restart VS Code after placing the file. Models will appear in the Copilot Chat model picker.</p>
+<h2><span class="material-symbols-outlined">folder</span> File Placement</h2>
+<table class="docs-table">
+<thead><tr><th>OS</th><th>Path</th></tr></thead>
+<tbody>
+<tr><td>Windows</td><td><code>%APPDATA%\Code\User\</code></td></tr>
+<tr><td>macOS</td><td><code>~/Library/Application Support/Code/User/</code></td></tr>
+<tr><td>Linux</td><td><code>~/.config/Code/User/</code></td></tr>
+</tbody>
+</table>
+<p>Restart VS Code after placing the file.</p>
+</div>`;
+}
+
+function initAboutPanel() {
+    const el = $('aboutContent');
+    if (!el) return;
+    el.innerHTML = `
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">info</span> What This Is</h2>
+<p>VSCode Modelator is a browser-based tool that generates <code>chatLanguageModels.json</code> &#8212; the configuration file VS Code uses to register custom model providers in Copilot Chat.</p>
+<p>It was built because maintaining that JSON by hand across multiple API providers is error-prone and tedious.</p>
+</div>
+
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">code</span> How It Works</h2>
+<p>Each configured endpoint receives a GET request to its <code>/v1/models</code> path. The response is parsed, model entries normalized into a consistent schema, and results from all endpoints merged into a single file.</p>
+<p>All processing happens in the browser. No data is transmitted except the API requests you explicitly configure.</p>
+</div>
+
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">build</span> Under The Hood</h2>
+<table class="docs-table">
+<thead><tr><th>Layer</th><th>Implementation</th></tr></thead>
+<tbody>
+<tr><td>Editor</td><td>Ace.js 1.32.7 with tree view overlay</td></tr>
+<tr><td>Fonts</td><td>Inter + JetBrains Mono via Google Fonts</td></tr>
+<tr><td>Icons</td><td>Google Material Symbols Outlined</td></tr>
+<tr><td>Architecture</td><td>Single HTML file, vanilla CSS and JavaScript, zero build step</td></tr>
+<tr><td>Theme</td><td>Dark / light toggle, persisted in localStorage</td></tr>
+<tr><td>Storage</td><td>Endpoint configs and preview cache in localStorage</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">gavel</span> License</h2>
+<p>Public domain. Use it, fork it, modify it, ship it in a product. No warranty, no attribution required. If it breaks your model picker, the fix is in <code>index.html</code> &#8212; it is ~250 lines of HTML.</p>
 </div>`;
 }
 
@@ -1238,6 +1464,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init docs panel
     initDocsPanel();
+
+    // Init about panel
+    initAboutPanel();
 
     // Load endpoints
     loadEndpoints();
@@ -1270,4 +1499,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init scripts panel
     initScriptPanel();
+
+    // Find bar keyboard handlers
+    const findInput = $('findInput');
+    const replaceInput = $('replaceInput');
+    if (findInput) {
+        findInput.addEventListener('input', () => doFind());
+        findInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? findPrev() : findNext(); }
+            if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
+        });
+    }
+    if (replaceInput) {
+        replaceInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); replaceOne(); }
+            if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
+        });
+    }
 });
