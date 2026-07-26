@@ -9,49 +9,16 @@
     <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-    <!-- TOP BAR -->
-    <header class="topbar" id="topbar">
-        <div class="topbar-left">
-            <span class="material-symbols-outlined topbar-icon">mobile_code</span>
-            <span class="topbar-title">VSCode Modelator</span>
-            <span class="topbar-divider"></span>
-            <span class="topbar-subtitle">OpenAI-compatible Model Converter</span>
-        </div>
-    </header>
-    <div class="app-wrapper" id="appWrapper">
-    <!-- SIDEBAR NAV (Astryx SideNav pattern) -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-nav">
-            <!-- Section: Navigation -->
-            <div class="sidebar-section">
-                <span class="sidebar-section-heading">Navigation</span>
-                <button class="sidebar-item active" data-panel="form" onclick="switchPanel('form')" title="Form"><span class="material-symbols-outlined sidebar-icon-outline">bolt</span><span class="material-symbols-outlined sidebar-icon-filled">bolt</span><span class="sidebar-label">Form</span></button>
-                <button class="sidebar-item" data-panel="editor" onclick="switchPanel('editor')" title="Viewer &amp; Editor"><span class="material-symbols-outlined sidebar-icon-outline">data_object</span><span class="material-symbols-outlined sidebar-icon-filled">data_object</span><span class="sidebar-label">Editor</span></button>
-                <button class="sidebar-item" data-panel="scripts" onclick="switchPanel('scripts')" title="Scripts"><span class="material-symbols-outlined sidebar-icon-outline">code_blocks</span><span class="material-symbols-outlined sidebar-icon-filled">code_blocks</span><span class="sidebar-label">Scripts</span></button>
-            </div>
-            <!-- Section: Utilities -->
-            <div class="sidebar-section">
-                <span class="sidebar-section-heading">Utilities</span>
-                <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label">Log</span></button>
-                <button class="sidebar-item" data-panel="docs" onclick="switchPanel('docs')" title="Documentation"><span class="material-symbols-outlined sidebar-icon-outline">menu_book</span><span class="material-symbols-outlined sidebar-icon-filled">menu_book</span><span class="sidebar-label">Docs</span></button>
-            </div>
-        </div>
-        <div class="sidebar-bottom">
-            <button class="sidebar-item" onclick="toggleTheme()" title="Toggle theme"><span class="material-symbols-outlined sidebar-icon-outline icon-dark">dark_mode</span><span class="material-symbols-outlined sidebar-icon-outline icon-light">light_mode</span><span class="sidebar-label">Theme</span></button>
-            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar"><span class="material-symbols-outlined" id="sidebarToggleIcon">menu_open</span><span class="sidebar-label sidebar-collapse-label">Collapse</span></button>
-        </div>
-    </nav>
-    <!-- CONTENT AREA -->
-    <div class="content-area" id="contentArea">
-        <!-- FORM PANEL -->
-        <div class="content-panel active" id="panelForm">
+    <div class="app-layout">
         <!-- LEFT: Form -->
         <div class="main-panel" id="mainPanel">
             <div class="container">
+                <h1><span class="material-symbols-outlined">mobile_code</span> VSCode Modelator <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode"><span class="material-symbols-outlined icon-dark">dark_mode</span><span class="material-symbols-outlined icon-light">light_mode</span></button></h1>
                 <p class="subtitle">Bridge your OpenAI compatible models to Visual Studio Code custom models.</p>
                 <div class="tabs">
                     <button id="tabFetch" class="active" onclick="switchTab('fetch')"><span class="material-symbols-outlined tab-icon">bolt</span> Fetch from API</button>
                     <button id="tabPaste" onclick="switchTab('paste')"><span class="material-symbols-outlined tab-icon">content_paste</span> Paste JSON</button>
+                    <button id="tabScripts" onclick="switchTab('scripts')"><span class="material-symbols-outlined tab-icon">code_blocks</span> Scripts</button>
                 </div>
                 <div id="fetchPanel">
                     <div class="endpoint-list" id="endpointList">
@@ -111,12 +78,19 @@
                         Or download the fetch script from the <strong>Scripts</strong> tab.
                     </div>
                 </div>
+                <div id="scriptsPanel" class="hidden">
+                    <div class="hint-box">
+                        <strong>💡 Workflow when localhost is not accessible:</strong><br>
+                        1. Download a <strong>Fetch</strong> script → run on machine with access → produces <code>models_raw.json</code><br>
+                        2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
+                        3. Convert to <code>chatLanguageModels.json</code> → download or copy
+                    </div>
+                    <div class="scripts-panel" id="scriptsPanelInner"></div>
+                </div>
                 <div id="status" class="status"></div>
             </div>
         </div>
-        </div>
-        <!-- EDITOR PANEL -->
-        <div class="content-panel hidden" id="panelEditor">
+        <!-- RIGHT: Editor -->
         <div class="side-panel" id="sidePanel">
             <div class="panel-header">
                 <div class="panel-header-left">
@@ -179,22 +153,13 @@
                 </div>
             </div>
         </div>
-        </div>
-        <!-- SCRIPTS PANEL -->
-        <div class="content-panel hidden" id="panelScripts">
-            <div class="container">
-                <div class="hint-box">
-                    <strong>💡 Workflow when localhost is not accessible:</strong><br>
-                    1. Download a <strong>Fetch</strong> script → run on machine with access → produces <code>models_raw.json</code><br>
-                    2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
-                    3. Convert to <code>chatLanguageModels.json</code> → download or copy
-                </div>
-                <div class="scripts-panel" id="scriptsPanelInner"></div>
-            </div>
-        </div>
-        <!-- LOG PANEL -->
-        <div class="content-panel hidden" id="panelLog">
-            <div class="log-panel" id="logPanel">
+    </div>
+    <!-- Expand collapsed side panel -->
+    <button class="expand-btn" id="expandBtn" style="display:none" onclick="toggleSidePanel()" title="Expand editor panel">
+        <span class="material-symbols-outlined">left_panel_open</span>
+    </button>
+    <!-- BOTTOM: Log -->
+    <div class="log-panel" id="logPanel">
         <div class="log-header" onclick="toggleLogPanel()">
             <div class="log-header-left">
                 <span class="material-symbols-outlined log-header-icon">terminal</span>
@@ -211,13 +176,6 @@
                 <div class="log-empty" id="logEmpty"><span class="material-symbols-outlined log-empty-icon">receipt_long</span><span>No activity yet</span></div>
             </div>
         </div>
-        </div>
-        </div>
-        <!-- DOCS PANEL -->
-        <div class="content-panel hidden" id="panelDocs">
-            <div class="docs-panel" id="docsContent"></div>
-        </div>
-    </div>
     </div>
     <script src="assets/app.js"></script>
 </body>

@@ -66,25 +66,12 @@ function escHtml(s) {
 
 // --- Panel controls ---
 
-function switchPanel(name) {
-    const panels = { form: 'panelForm', editor: 'panelEditor', scripts: 'panelScripts', log: 'panelLog', docs: 'panelDocs' };
-    Object.values(panels).forEach(id => $(id).classList.replace('active', 'hidden'));
-    $(panels[name]).classList.replace('hidden', 'active');
-    document.querySelectorAll('.sidebar-item[data-panel]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.panel === name);
-    });
-    log('action', `Switched to ${name} panel`);
-}
-
-function toggleSidebar() {
-    const sb = $('sidebar');
-    sb.classList.toggle('expanded');
-    $('sidebarToggleIcon').textContent = sb.classList.contains('expanded') ? 'menu' : 'menu_open';
-}
-
 function toggleSidePanel() {
     const panel = $('sidePanel');
-    panel.classList.toggle('collapsed');
+    panel.classList.contains('collapsed') ? panel.classList.remove('collapsed') : panel.classList.add('collapsed');
+    const btn = $('expandBtn');
+    if (btn) btn.style.display = panel.classList.contains('collapsed') ? 'flex' : 'none';
+    log('action', panel.classList.contains('collapsed') ? 'Editor panel collapsed' : 'Editor panel expanded');
 }
 
 function toggleLogPanel() {
@@ -1277,8 +1264,10 @@ function clearCache() {
 function switchTab(tab) {
     $('tabFetch').classList.toggle('active', tab === 'fetch');
     $('tabPaste').classList.toggle('active', tab === 'paste');
+    $('tabScripts').classList.toggle('active', tab === 'scripts');
     $('fetchPanel').classList.toggle('hidden', tab !== 'fetch');
     $('pastePanel').classList.toggle('hidden', tab !== 'paste');
+    $('scriptsPanel').classList.toggle('hidden', tab !== 'scripts');
     $('status').className = 'status';
     log('action', `Switched to ${tab} tab`);
 }
@@ -1704,71 +1693,8 @@ function copyCurlCommand() {
 
 // --- Init ---
 
-function initDocsPanel() {
-    const el = $('docsContent');
-    if (!el) return;
-    el.innerHTML = `
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">menu_book</span> Getting Started <span class="docs-badge">Quick Guide</span></h2>
-<p>VSCode Modelator bridges any OpenAI-compatible <code>/v1/models</code> endpoint to VS Code Copilot Chat as a custom model provider.</p>
-<h3>Workflow</h3>
-<ol>
-<li><strong>Add Endpoint</strong> — Go to <span class="docs-kbd">Form</span> panel, enter your API URL and key</li>
-<li><strong>Fetch & Convert</strong> — Click <span class="docs-kbd">Fetch All &amp; Merge</span> to pull models and convert</li>
-<li><strong>Review</strong> — Switch to <span class="docs-kbd">Editor</span> panel to inspect the generated JSON</li>
-<li><strong>Download</strong> — Save as <code>chatLanguageModels.json</code> and place in your VS Code user directory</li>
-</ol>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">route</span> Alternative: Offline Scripts</h2>
-<p>If your machine cannot directly access the API (e.g. localhost restrictions), use the download scripts:</p>
-<ol>
-<li>Go to <span class="docs-kbd">Scripts</span> panel</li>
-<li>Select your <strong>Operating System</strong> and script mode</li>
-<li>Download and run the script on a machine with API access</li>
-<li>Bring the output <code>models_raw.json</code> back to the <strong>Paste JSON</strong> tab</li>
-</ol>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">keyboard</span> Keyboard Shortcuts</h2>
-<ul>
-<li><span class="docs-kbd">Ctrl+E</span> — Toggle edit mode in the editor</li>
-<li><span class="docs-kbd">Ctrl+F</span> — Open Find &amp; Replace bar</li>
-<li><span class="docs-kbd">Shift+Alt+F</span> — Format / Beautify JSON</li>
-<li><span class="docs-kbd">Escape</span> — Close Find bar</li>
-</ul>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">settings</span> Supported Endpoint Formats</h2>
-<p>The tool automatically detects and normalizes various response formats:</p>
-<ul>
-<li><strong>OpenAI standard</strong> — <code>{"object":"list","data":[...]}</code></li>
-<li><strong>Capabilities format</strong> — <code>{"id":"model","capabilities":{...}}</code></li>
-<li><strong>Flat list</strong> — <code>[{"id":"model1"},...]</code></li>
-<li><strong>Vercel AI SDK</strong> — <code>{"models":[...]}</code></li>
-</ul>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">info</span> VS Code Integration</h2>
-<p>Output file <code>chatLanguageModels.json</code> must be placed in your VS Code <strong>user settings directory</strong>:</p>
-<ul>
-<li><strong>Windows:</strong> <code>%APPDATA%\Code\User\</code></li>
-<li><strong>macOS:</strong> <code>~/Library/Application Support/Code/User/</code></li>
-<li><strong>Linux:</strong> <code>~/.config/Code/User/</code></li>
-</ul>
-<p>Restart VS Code after placing the file. Models will appear in the Copilot Chat model picker.</p>
-</div>`;
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     log('info', 'VSCode Modelator initialized');
-
-    // Init docs panel
-    initDocsPanel();
 
     // Load endpoints
     loadEndpoints();
