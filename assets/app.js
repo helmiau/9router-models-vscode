@@ -498,6 +498,7 @@ function getEndpointData() {
             name: row.querySelector('.ep-name')?.value?.trim() || '',
             url: row.querySelector('.ep-url')?.value?.trim() || '',
             key: row.querySelector('.ep-key')?.value?.trim() || '',
+            secret: row.querySelector('.ep-secret')?.value?.trim() || '',
             apiType: row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions',
         });
     });
@@ -509,7 +510,7 @@ function saveEndpoints() {
     try { localStorage.setItem(EP_CACHE_KEY, JSON.stringify(data)); } catch {}
 }
 
-function addEndpoint(name, url, key, apiType) {
+function addEndpoint(name, url, key, secret, apiType) {
     endpointIdCounter++;
     const id = endpointIdCounter;
     const at = apiType || 'chat-completions';
@@ -541,11 +542,19 @@ function addEndpoint(name, url, key, apiType) {
             </div>
         </div>
         <div class="field">
-            <label><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+            <label><span class="material-symbols-outlined label-icon">key</span> API Key</label>
             <div class="input-row">
-                <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx or \${input:chat.lm.secret.-65d90303}">
+                <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx">
                 <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                 <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+            </div>
+        </div>
+        <div class="field">
+            <label><span class="material-symbols-outlined label-icon">lock</span> Secret Reference</label>
+            <div class="input-row">
+                <input type="text" class="ep-secret" value="${escHtml(secret || '')}" placeholder="\${input:chat.lm.secret.-65d90303}">
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
         </div>
         <div class="field">
@@ -564,6 +573,7 @@ function addEndpoint(name, url, key, apiType) {
     row.querySelector('.ep-url').id = `epUrl_${id}`;
     row.querySelector('.ep-key').id = `epKey_${id}`;
     row.querySelector('.ep-name').id = `epName_${id}`;
+    row.querySelector('.ep-secret').id = `epSecret_${id}`;
 
     // Listen for changes to save
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', saveEndpoints));
@@ -758,7 +768,7 @@ function loadEndpoints() {
         if (!Array.isArray(data) || data.length === 0) {
             addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
         } else {
-            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.apiType));
+            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.secret, ep.apiType));
         }
     } catch {
         addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
@@ -801,7 +811,7 @@ function convertModels(raw, modelsUrl, providerName, apiKey, apiType) {
         provider: {
             name: providerName || '9Router',
             vendor: 'customendpoint',
-            apiKey: apiKey || '${input:chat.lm.secret.-65d90303}',
+            apiKey: apiKey || '\${input:chat.lm.secret.-65d90303}',
             apiType: apiType || 'chat-completions',
             models
         },
@@ -933,6 +943,7 @@ async function fetchSingleEndpoint(id) {
     const name = row.querySelector('.ep-name')?.value?.trim() || '';
     const url = row.querySelector('.ep-url')?.value?.trim() || '';
     const key = row.querySelector('.ep-key')?.value?.trim() || '';
+    const secret = row.querySelector('.ep-secret')?.value?.trim() || '';
     const apiType = row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions';
 
     if (!url) { setEndpointStatus(id, 'err', 'Endpoint URL is required'); log('error', `Endpoint #${id}: URL required`); return; }
@@ -967,7 +978,7 @@ async function fetchSingleEndpoint(id) {
         setEndpointStatus(id, 'ok', `${modelCount} models received`);
         log('success', `Endpoint #${id} (${name || url}): ${modelCount} models`);
 
-        const { provider } = convertModels(raw, modelsUrl, name, key, apiType);
+        const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
         return provider;
 
     } catch (e) {
@@ -990,9 +1001,15 @@ async function runFetchAll() {
     for (let i = 0; i < rows.length; i++) {
         const url = rows[i].querySelector('.ep-url')?.value?.trim();
         const key = rows[i].querySelector('.ep-key')?.value?.trim();
+        const secret = rows[i].querySelector('.ep-secret')?.value?.trim();
         if (!url || !key) {
             setStatus(`Endpoint #${i + 1}: URL and API Key are required.`, 'err');
             log('error', `Endpoint #${i + 1}: URL and API Key required`);
+            return;
+        }
+        if (!secret) {
+            setStatus(`Endpoint #${i + 1}: Secret Reference is required for output JSON.`, 'err');
+            log('error', `Endpoint #${i + 1}: Secret Reference required`);
             return;
         }
     }
@@ -1054,7 +1071,7 @@ function runPaste() {
 
     log('action', 'Converting pasted JSON');
     const modelsUrl = 'http://localhost:20128/v1';
-    const { provider } = convertModels(raw, modelsUrl, $('pasteProviderName').value.trim(), $('pasteApiKey').value.trim());
+    const { provider } = convertModels(raw, modelsUrl, $('pasteProviderName').value.trim(), ($('pasteSecret')?.value?.trim() || $('pasteApiKey')?.value?.trim()));
     showResult([provider], provider.models.length);
 }
 
@@ -1262,6 +1279,7 @@ async function downloadScript(file) {
         const firstRow = $('endpointList').querySelector('.endpoint-row');
         const apiUrl = firstRow?.querySelector('.ep-url')?.value?.trim() || 'http://localhost:20128/v1/models';
         const apiKey = firstRow?.querySelector('.ep-key')?.value?.trim() || '';
+        const secretRef = firstRow?.querySelector('.ep-secret')?.value?.trim() || '';
         const outputFile = $('outputFile').value.trim() || 'chatLanguageModels.json';
 
         const endpoint = buildEndpoint(apiUrl);
@@ -1273,7 +1291,7 @@ async function downloadScript(file) {
         content = content.replace(/"name":"9Router"/g, '"name":"' + providerName.replace(/"/g, '\\"') + '"');
         content = content.replace(/"name": "9Router"/g, '"name": "' + providerName.replace(/"/g, '\\"') + '"');
 
-        const scriptApiKey = apiKey || '${input:chat.lm.secret.-65d90303}';
+        const scriptApiKey = secretRef || apiKey || '\${input:chat.lm.secret.-65d90303}';
         content = content.replace(/DEFAULT_API_KEY = ""/g, 'DEFAULT_API_KEY = "' + apiKey.replace(/"/g, '\\"') + '"');
         content = content.replace(/DEFAULT_API_KEY=""/g, 'DEFAULT_API_KEY="' + apiKey.replace(/"/g, '\\"') + '"');
         content = content.replace(/set "DEFAULT_API_KEY="/g, 'set "DEFAULT_API_KEY=' + apiKey.replace(/"/g, '""') + '"');
@@ -1409,6 +1427,16 @@ function initDocsPanel() {
 </div>
 
 <div class="docs-section">
+<h2><span class="material-symbols-outlined">key</span> API Key &amp; Secret Reference</h2>
+<p>Each endpoint has two separate credential fields:</p>
+<ul>
+<li><strong>API Key</strong> &#8212; your real credential (e.g. <code>sk-xxxx</code>) used <em>only</em> to authenticate against the <code>/v1/models</code> endpoint during fetch. Never written to the output file.</li>
+<li><strong>Secret Reference</strong> &#8212; a VS Code secret input reference like <code>\${input:chat.lm.secret.-65d90303}</code>. This is what gets stored in <code>chatLanguageModels.json</code>. When you select the model in Copilot Chat, VS Code prompts you for the actual key through its secure dialog.</li>
+</ul>
+<p>This separation means the generated JSON file can be shared, backed up, or inspected without leaking credentials.</p>
+</div>
+
+<div class="docs-section">
 <h2><span class="material-symbols-outlined">folder</span> File Placement</h2>
 <table class="docs-table">
 <thead><tr><th>OS</th><th>Path</th></tr></thead>
@@ -1436,6 +1464,15 @@ function initAboutPanel() {
 <h2><span class="material-symbols-outlined">code</span> How It Works</h2>
 <p>Each configured endpoint receives a GET request to its <code>/v1/models</code> path. The response is parsed, model entries normalized into a consistent schema, and results from all endpoints merged into a single file.</p>
 <p>All processing happens in the browser. No data is transmitted except the API requests you explicitly configure.</p>
+</div>
+
+<div class="docs-section">
+<h2><span class="material-symbols-outlined">key</span> API Key &amp; Secret Reference</h2>
+<p>Each endpoint provides two credential fields:</p>
+<ul>
+<li><strong>API Key</strong> &#8211; your real credential used only to fetch from the endpoint. Never stored in output.</li>
+<li><strong>Secret Reference</strong> &#8211; the VS Code secret input reference (e.g. <code>\${input:chat.lm.secret.-65d90303}</code>) written to the output JSON. VS Code prompts for the actual key at runtime.</li>
+</ul>
 </div>
 
 <div class="docs-section">

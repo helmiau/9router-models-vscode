@@ -59,9 +59,9 @@
     --spacing-6: 24px;
     --spacing-8: 32px;
     --size-element-md: 32px;
-    --duration-fast: 175ms;
-    --duration-medium: 410ms;
-    --ease-standard: cubic-bezier(0.24, 1, 0.4, 1);
+    --duration-fast: 120ms;
+    --duration-medium: 280ms;
+    --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body.light {
@@ -103,52 +103,52 @@ body.light {
 .hidden { display: none !important; }
 
 /* --- Transition animations --- */
-.panel-fade-in { animation: panelFadeIn 220ms var(--ease-standard) both; }
+.panel-fade-in { animation: panelFadeIn 140ms var(--ease-standard) both; }
 @keyframes panelFadeIn {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(3px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-.slide-down-in { animation: slideDownIn 220ms var(--ease-standard) both; }
+.slide-down-in { animation: slideDownIn 140ms var(--ease-standard) both; }
 @keyframes slideDownIn {
-    from { opacity: 0; transform: translateY(-6px); }
+    from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-.slide-up-in { animation: slideUpIn 220ms var(--ease-standard) both; }
+.slide-up-in { animation: slideUpIn 140ms var(--ease-standard) both; }
 @keyframes slideUpIn {
     from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
     to   { opacity: 1; max-height: 80px; padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
 }
-.slide-up-out { animation: slideUpOut 180ms var(--ease-standard) both; }
+.slide-up-out { animation: slideUpOut 110ms var(--ease-standard) both; }
 @keyframes slideUpOut {
     from { opacity: 1; max-height: 80px; }
     to   { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
 }
-.crossfade-in { animation: crossfadeIn 200ms var(--ease-standard) both; }
+.crossfade-in { animation: crossfadeIn 130ms var(--ease-standard) both; }
 @keyframes crossfadeIn {
     from { opacity: 0; }
     to   { opacity: 1; }
 }
-.crossfade-out { animation: crossfadeOut 150ms var(--ease-standard) both; }
+.crossfade-out { animation: crossfadeOut 100ms var(--ease-standard) both; }
 @keyframes crossfadeOut {
     from { opacity: 1; }
     to   { opacity: 0; }
 }
-.dropdown-enter { animation: dropIn 180ms var(--ease-standard) both; }
+.dropdown-enter { animation: dropIn 130ms var(--ease-standard) both; }
 @keyframes dropIn {
-    from { opacity: 0; transform: translateY(-4px) scaleY(0.95); }
+    from { opacity: 0; transform: translateY(-3px) scaleY(0.97); }
     to   { opacity: 1; transform: translateY(0) scaleY(1); }
 }
-.cache-slide-in { animation: cacheSlideIn 250ms var(--ease-standard) both; }
+.cache-slide-in { animation: cacheSlideIn 160ms var(--ease-standard) both; }
 @keyframes cacheSlideIn {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
 }
-.status-enter { animation: statusEnter 220ms var(--ease-standard) both; }
+.status-enter { animation: statusEnter 140ms var(--ease-standard) both; }
 @keyframes statusEnter {
-    from { opacity: 0; transform: translateY(-4px); max-height: 0; margin-top: 0; }
+    from { opacity: 0; transform: translateY(-3px); max-height: 0; margin-top: 0; }
     to   { opacity: 1; transform: translateY(0); max-height: 200px; }
 }
-.status-exit { animation: statusExit 180ms var(--ease-standard) both; }
+.status-exit { animation: statusExit 110ms var(--ease-standard) both; }
 @keyframes statusExit {
     from { opacity: 1; max-height: 200px; }
     to   { opacity: 0; max-height: 0; margin-top: 0; padding: 0; border-width: 0; }
@@ -411,6 +411,7 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
 .endpoint-row-actions { display: flex; gap: 2px; }
 .endpoint-row .field { margin-bottom: 0; }
 .endpoint-row .input-row { display: flex; gap: 0; }
+.ep-secret { font-family: var(--font-mono); }
 .endpoint-row .input-row input { flex: 1; border-radius: var(--radius-inner) 0 0 var(--radius-inner); height: var(--size-element-md); }
 .endpoint-row .row { gap: var(--spacing-2); }
 .endpoint-row .row .field { flex: 1; }
@@ -460,7 +461,7 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
     max-height: 180px; overflow-y: auto;
     opacity: 0; visibility: hidden; pointer-events: none;
     transform: translateY(-4px);
-    transition: opacity 180ms var(--ease-standard), transform 180ms var(--ease-standard), visibility 180ms;
+    transition: opacity 130ms var(--ease-standard), transform 130ms var(--ease-standard), visibility 130ms;
     transform-origin: top;
 }
 .ep-apiType-wrap.open .ep-apiType-dropdown {
@@ -527,9 +528,9 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
     max-height: 0; opacity: 0; overflow: hidden;
     padding-top: 0; padding-bottom: 0; margin-top: 0;
     border: 1px solid transparent;
-    transition: max-height 280ms var(--ease-standard), opacity 220ms var(--ease-standard),
-                padding 220ms var(--ease-standard), margin 220ms var(--ease-standard),
-                border-color 220ms var(--ease-standard), background 220ms var(--ease-standard);
+    transition: max-height 200ms var(--ease-standard), opacity 160ms var(--ease-standard),
+                padding 160ms var(--ease-standard), margin 160ms var(--ease-standard),
+                border-color 160ms var(--ease-standard), background 160ms var(--ease-standard);
 }
 .status.ok  { max-height: 200px; opacity: 1; padding: var(--spacing-3); margin-top: var(--spacing-4);
     background: var(--color-success-muted); border: 1px solid var(--color-success); color: var(--color-success); }
@@ -854,7 +855,7 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
     display: flex; flex-direction: column; gap: 1px;
     padding: var(--spacing-1) var(--spacing-2);
     background: var(--color-bg-card); border-bottom: 1px solid var(--color-border);
-    animation: crossfadeIn 180ms var(--ease-standard) both;
+    animation: crossfadeIn 130ms var(--ease-standard) both;
 }
 .findbar-row {
     display: flex; align-items: center; gap: var(--spacing-1);
@@ -879,7 +880,7 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
     padding: var(--spacing-1) var(--spacing-3);
     background: var(--color-bg-card); border-top: 1px solid var(--color-border);
     font-size: 0.6875rem; color: var(--color-text-secondary);
-    transition: opacity 220ms var(--ease-standard), transform 220ms var(--ease-standard);
+    transition: opacity 160ms var(--ease-standard), transform 160ms var(--ease-standard);
 }
 .editor-cache-clear {
     width: auto !important; height: auto !important; padding: 1px 6px !important;
@@ -900,11 +901,11 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
 }
 .log-panel.collapsed .log-body {
     overflow: hidden; max-height: 0; opacity: 0;
-    transition: max-height 280ms var(--ease-standard), opacity 200ms var(--ease-standard), padding 200ms var(--ease-standard);
+    transition: max-height 200ms var(--ease-standard), opacity 140ms var(--ease-standard), padding 140ms var(--ease-standard);
     padding-top: 0; padding-bottom: 0;
 }
 .log-panel .log-body {
-    transition: max-height 280ms var(--ease-standard), opacity 200ms var(--ease-standard), padding 200ms var(--ease-standard);
+    transition: max-height 200ms var(--ease-standard), opacity 140ms var(--ease-standard), padding 140ms var(--ease-standard);
 }
 
 .log-header {
@@ -1258,8 +1259,8 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
 /* --- Icon micro-feedback animations --- */
 @keyframes iconBounce {
     0%   { transform: scale(1); }
-    30%  { transform: scale(1.3); }
-    60%  { transform: scale(0.9); }
+    25%  { transform: scale(1.35); }
+    55%  { transform: scale(0.92); }
     100% { transform: scale(1); }
 }
 @keyframes iconSpin {
@@ -1268,32 +1269,32 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
 }
 @keyframes iconPulse {
     0%   { transform: scale(1); opacity: 1; }
-    50%  { transform: scale(1.15); opacity: 0.7; }
+    40%  { transform: scale(1.18); opacity: 0.65; }
     100% { transform: scale(1); opacity: 1; }
 }
 @keyframes iconCheck {
     0%   { transform: scale(1); }
-    40%  { transform: scale(1.25); }
+    35%  { transform: scale(1.3); }
     100% { transform: scale(1); }
 }
 @keyframes iconShake {
     0%, 100% { transform: translateX(0); }
-    20%  { transform: translateX(-3px); }
-    40%  { transform: translateX(3px); }
-    60%  { transform: translateX(-2px); }
-    80%  { transform: translateX(2px); }
+    15%  { transform: translateX(-3px); }
+    30%  { transform: translateX(3px); }
+    45%  { transform: translateX(-2px); }
+    60%  { transform: translateX(2px); }
 }
 @keyframes iconFadeSwap {
     0%   { opacity: 1; transform: scale(1); }
-    40%  { opacity: 0; transform: scale(0.5) rotate(-30deg); }
-    60%  { opacity: 0; transform: scale(0.5) rotate(30deg); }
+    35%  { opacity: 0; transform: scale(0.4) rotate(-30deg); }
+    55%  { opacity: 0; transform: scale(0.4) rotate(30deg); }
     100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
-.icon-bounce   { animation: iconBounce 350ms var(--ease-standard); }
-.icon-spin     { animation: iconSpin 500ms var(--ease-standard); }
-.icon-pulse    { animation: iconPulse 350ms var(--ease-standard); }
-.icon-check    { animation: iconCheck 300ms var(--ease-standard); }
-.icon-shake    { animation: iconShake 400ms var(--ease-standard); }
-.icon-fadeswap { animation: iconFadeSwap 500ms var(--ease-standard); }
+.icon-bounce   { animation: iconBounce 200ms var(--ease-standard); }
+.icon-spin     { animation: iconSpin 300ms var(--ease-standard); }
+.icon-pulse    { animation: iconPulse 200ms var(--ease-standard); }
+.icon-check    { animation: iconCheck 180ms var(--ease-standard); }
+.icon-shake    { animation: iconShake 250ms var(--ease-standard); }
+.icon-fadeswap { animation: iconFadeSwap 350ms var(--ease-standard); }
 

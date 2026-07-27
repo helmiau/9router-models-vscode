@@ -90,10 +90,17 @@
                         </div>
                     </div>
                     <div class="field">
-                        <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key / Token</label>
+                        <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key</label>
                         <div class="input-row">
-                            <input type="password" id="pasteApiKey" placeholder="${input:chat.lm.secret.-65d90303}">
+                            <input type="password" id="pasteApiKey" placeholder="sk-xxxxx">
                             <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="pasteSecret"><span class="material-symbols-outlined label-icon">lock</span> Secret Reference</label>
+                        <div class="input-row">
+                            <input type="text" id="pasteSecret" placeholder="${input:chat.lm.secret.-65d90303}">
+                            <button type="button" class="paste-btn" onclick="pasteField('pasteSecret')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
                         </div>
                     </div>
                     <div class="row">
