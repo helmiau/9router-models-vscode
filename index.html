@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VSCode Modelator — OpenAI-compatible Model Converter</title>
+    <title>VSCode Modelator — Custom AI Provider Generator</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a1a2e'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='%239eb7ff' font-family='system-ui'>⚡</text></svg>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
             <span class="material-symbols-outlined topbar-icon">mobile_code</span>
             <span class="topbar-title">VSCode Modelator</span>
             <span class="topbar-divider"></span>
-            <span class="topbar-subtitle">OpenAI-compatible Model Converter</span>
+            <span class="topbar-subtitle">Custom AI Provider Generator</span>
         </div>
     </header>
     <div class="app-wrapper" id="appWrapper">
@@ -32,7 +32,7 @@
             <!-- Section: Navigation -->
             <div class="sidebar-section">
                 <span class="sidebar-section-heading">Navigation</span>
-                <button class="sidebar-item active" data-panel="form" onclick="switchPanel('form')" title="Form"><span class="material-symbols-outlined sidebar-icon-outline">bolt</span><span class="material-symbols-outlined sidebar-icon-filled">bolt</span><span class="sidebar-label">Form</span></button>
+                <button class="sidebar-item active" data-panel="form" onclick="switchPanel('form')" title="Home"><span class="material-symbols-outlined sidebar-icon-outline">home</span><span class="material-symbols-outlined sidebar-icon-filled">home</span><span class="sidebar-label">Home</span></button>
                 <button class="sidebar-item" data-panel="editor" onclick="switchPanel('editor')" title="Viewer &amp; Editor"><span class="material-symbols-outlined sidebar-icon-outline">data_object</span><span class="material-symbols-outlined sidebar-icon-filled">data_object</span><span class="sidebar-label">Editor</span></button>
                 <button class="sidebar-item" data-panel="scripts" onclick="switchPanel('scripts')" title="Scripts"><span class="material-symbols-outlined sidebar-icon-outline">code_blocks</span><span class="material-symbols-outlined sidebar-icon-filled">code_blocks</span><span class="sidebar-label">Scripts</span></button>
             </div>
@@ -40,7 +40,7 @@
             <div class="sidebar-section">
                 <span class="sidebar-section-heading">Utilities</span>
                 <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label">Log</span></button>
-                <button class="sidebar-item" data-panel="docs" onclick="switchPanel('docs')" title="Documentation"><span class="material-symbols-outlined sidebar-icon-outline">menu_book</span><span class="material-symbols-outlined sidebar-icon-filled">menu_book</span><span class="sidebar-label">Docs</span></button>
+
                 <button class="sidebar-item" data-panel="about" onclick="switchPanel('about')" title="About"><span class="material-symbols-outlined sidebar-icon-outline">info</span><span class="material-symbols-outlined sidebar-icon-filled">info</span><span class="sidebar-label">About</span></button>
             </div>
         </div>
@@ -50,80 +50,55 @@
     </nav>
     <!-- CONTENT AREA -->
     <div class="content-area" id="contentArea">
-        <!-- FORM PANEL -->
+        <!-- HOME PANEL -->
         <div class="content-panel active" id="panelForm">
-        <!-- LEFT: Form -->
+        <!-- LEFT: Home -->
         <div class="main-panel" id="mainPanel">
             <div class="container">
-                <p class="subtitle">Bridge your OpenAI compatible models to Visual Studio Code custom models.</p>
-                <div class="tabs">
-                    <button id="tabFetch" class="active" onclick="switchTab('fetch')"><span class="material-symbols-outlined tab-icon">bolt</span> Fetch from API</button>
-                    <button id="tabPaste" onclick="switchTab('paste')"><span class="material-symbols-outlined tab-icon">content_paste</span> Paste JSON</button>
+                <p class="subtitle">Generate <code>chatLanguageModels.json</code> for VS Code from any OpenAI-compatible proxy.</p>
+                <div class="hint-box howto-hint">
+                    <div class="curl-header howto-toggle" onclick="toggleHowto()">
+                        <strong><span class="material-symbols-outlined howto-chevron">expand_more</span><span class="material-symbols-outlined install-hint-icon">help</span> How to get JSON:</strong>
+                    </div>
+                    <div class="howto-body">
+                        <div id="curlCommandList" class="curl-command-list"></div>
+                        <div class="curl-hint-text">Or download the fetch script from the <strong>Scripts</strong> tab.</div>
+                    </div>
                 </div>
-                <div id="fetchPanel">
+
+                <div class="endpoint-section">
                     <div class="endpoint-list" id="endpointList">
                         <!-- Endpoint rows injected by JS -->
                     </div>
                     <button class="add-endpoint-btn" onclick="addEndpoint()" type="button"><span class="material-symbols-outlined btn-icon">add</span> Add Endpoint</button>
-                    <div class="row output-row">
-                        <div class="field">
-                            <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
-                            <input type="text" id="outputFile" value="chatLanguageModels.json">
-                        </div>
-                    </div>
-                    <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
-                    <div id="corsHint" class="hint-box hidden">
-                        <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
-                        <strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Run a local server: <code>python -m http.server 8080</code><br>• Use the <strong>Paste JSON</strong> tab instead<br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> script
+                </div>
+                <div class="row output-row">
+                    <div class="field">
+                        <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
+                        <input type="text" id="outputFile" value="chatLanguageModels.json">
                     </div>
                 </div>
-                <div id="pastePanel" class="hidden">
-                    <div class="field">
-                        <label for="pasteInput"><span class="material-symbols-outlined label-icon">terminal</span> Paste raw JSON response from /v1/models</label>
-                        <textarea class="paste-area" id="pasteInput" placeholder='{"object":"list","data":[{"id":"gpt-4o","capabilities":{...}}]}'></textarea>
+                <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
+                <div id="corsHint" class="hint-box cors-hint hidden">
+                    <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
+                    <strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Run a local server: <code>python -m http.server 8080</code><br>• Paste JSON using the section above<br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> scripts
+                </div>
+                <div id="installHint" class="hint-box install-hint hidden">
+                    <div class="curl-header">
+                        <strong><span class="material-symbols-outlined install-hint-icon">check_circle</span> File generated! Now install it:</strong>
                     </div>
-                    <div class="field">
-                        <label><span class="material-symbols-outlined label-icon">upload</span> Or upload models_raw.json</label>
-                        <div class="upload-zone" id="uploadZone">
-                            <input type="file" id="fileUpload" accept=".json" onchange="handleFileUpload(event)">
-                            <label for="fileUpload" class="upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop models_raw.json here</label>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label for="pasteApiKey"><span class="material-symbols-outlined label-icon">key</span> API Key</label>
-                        <div class="input-row">
-                            <input type="password" id="pasteApiKey" placeholder="sk-xxxxx">
-                            <button type="button" class="paste-btn" onclick="pasteField('pasteApiKey')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label for="pasteSecret"><span class="material-symbols-outlined label-icon">lock</span> Secret Reference</label>
-                        <div class="input-row">
-                            <input type="text" id="pasteSecret" placeholder="${input:chat.lm.secret.-65d90303}">
-                            <button type="button" class="paste-btn" onclick="pasteField('pasteSecret')" title="Paste from clipboard"><span class="material-symbols-outlined">content_paste</span></button>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="field">
-                            <label for="pasteProviderName"><span class="material-symbols-outlined label-icon">badge</span> Custom Endpoint Name</label>
-                            <input type="text" id="pasteProviderName" value="9Router" placeholder="Provider name">
-                        </div>
-                        <div class="field">
-                            <label for="pasteOutputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
-                            <input type="text" id="pasteOutputFile" value="chatLanguageModels.json">
-                        </div>
-                        <div class="field paste-convert-row">
-                            <button onclick="runPaste()"><span class="material-symbols-outlined btn-icon">code</span> Convert</button>
-                        </div>
-                    </div>
-                    <div class="hint-box">
-                        <div class="curl-header">
-                            <strong>How to get JSON:</strong>
-                            <button class="copy-curl-btn" onclick="copyCurlCommand()" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span> Copy</button>
-                        </div>
-                        <div class="curl-box"><code id="curlCommand">curl -s -H "Authorization: Bearer YOUR_TOKEN" http://localhost:20128/v1/models</code></div>
-                        Or download the fetch script from the <strong>Scripts</strong> tab.
-                    </div>
+                    <ol class="install-steps">
+                        <li>Click <strong>Download</strong> in the Editor panel to save <code>chatLanguageModels.json</code>.</li>
+                        <li>Copy the file to your VS Code user directory:<br>
+                            <div class="curl-box"><code id="installPath">%APPDATA%\Code\User\</code>
+                            <button type="button" class="copy-curl-btn" onclick="copyInstallPath()" title="Copy path"><span class="material-symbols-outlined">content_copy</span></button></div>
+                        </li>
+                        <li>Restart VS Code.</li>
+                        <li>Press <span class="docs-kbd">Ctrl+Shift+P</span> (or <span class="docs-kbd">Cmd+Shift+P</span> on Mac) and type <strong>Chat: Manage Language Models</strong>, hit Enter.</li>
+                        <li>Locate your custom provider in the list. Click the <strong>gear icon</strong> next to it.</li>
+                        <li>Paste your API key into the input field and save.</li>
+                    </ol>
+                    <p class="install-note">For macOS: <code>~/Library/Application Support/Code/User/</code> &nbsp;|&nbsp; Linux: <code>~/.config/Code/User/</code></p>
                 </div>
                 <div id="status" class="status"></div>
             </div>
@@ -159,23 +134,6 @@
                                 <button class="editor-view-btn" id="findReplaceBtn" onclick="toggleFindBar()" title="Find & Replace (Ctrl+H)"><span class="material-symbols-outlined">find_replace</span><span class="editor-view-label">Find</span></button>
                             </div>
                         </div>
-                        <div class="findbar hidden" id="findBar">
-                            <div class="findbar-row">
-                                <span class="material-symbols-outlined findbar-icon">search</span>
-                                <input type="text" class="findbar-input" id="findInput" placeholder="Find..." autocomplete="off">
-                                <span class="findbar-count" id="findCount"></span>
-                                <button class="editor-tool-btn" onclick="findPrev()" title="Previous (Shift+Enter)"><span class="material-symbols-outlined">keyboard_arrow_up</span></button>
-                                <button class="editor-tool-btn" onclick="findNext()" title="Next (Enter)"><span class="material-symbols-outlined">keyboard_arrow_down</span></button>
-                                <button class="editor-tool-btn" onclick="toggleReplaceRow()" id="toggleReplaceBtn" title="Toggle replace"><span class="material-symbols-outlined">expand_more</span></button>
-                                <button class="editor-tool-btn" onclick="closeFindBar()" title="Close (Esc)"><span class="material-symbols-outlined">close</span></button>
-                            </div>
-                            <div class="findbar-row findbar-replace hidden" id="replaceRow">
-                                <span class="material-symbols-outlined findbar-icon">find_replace</span>
-                                <input type="text" class="findbar-input" id="replaceInput" placeholder="Replace..." autocomplete="off">
-                                <button class="editor-tool-btn" onclick="replaceOne()" title="Replace"><span class="material-symbols-outlined">check</span></button>
-                                <button class="editor-tool-btn" onclick="replaceAll()" title="Replace all"><span class="material-symbols-outlined">done_all</span></button>
-                            </div>
-                        </div>
                         <div id="aceEditor" class="hidden"></div>
                         <div class="tree-view" id="treeView"></div>
                         <div class="editor-cache-bar hidden" id="cacheBar">
@@ -193,7 +151,7 @@
                 <div class="hint-box">
                     <strong>💡 Workflow when localhost is not accessible:</strong><br>
                     1. Download a <strong>Fetch</strong> script → run on machine with access → produces <code>models_raw.json</code><br>
-                    2. Come back here → <strong>Paste JSON</strong> tab → upload <code>models_raw.json</code><br>
+                    2. Come back here → select <strong>Paste JSON</strong> or <strong>Upload</strong> source → paste/upload <code>models_raw.json</code><br>
                     3. Convert to <code>chatLanguageModels.json</code> → download or copy
                 </div>
                 <div class="scripts-panel" id="scriptsPanelInner"></div>
@@ -219,10 +177,6 @@
             </div>
         </div>
         </div>
-        </div>
-        <!-- DOCS PANEL -->
-        <div class="content-panel hidden" id="panelDocs">
-            <div class="info-panel" id="docsContent"></div>
         </div>
         <!-- ABOUT PANEL -->
         <div class="content-panel hidden" id="panelAbout">

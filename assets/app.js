@@ -1,7 +1,7 @@
 /* ============================================
    VSCode Modelator
-   Bridge your OpenAI compatible models to
-   Visual Studio Code custom models.
+   Custom AI Provider Generator
+   Generate chatLanguageModels.json for VS Code
    ============================================ */
 
 let lastResult = null;
@@ -90,10 +90,21 @@ function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// --- Field visibility toggle ---
+function toggleFieldVis(btn) {
+    const input = btn.closest('.input-row')?.querySelector('input');
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = isPassword ? 'visibility' : 'visibility_off';
+    btn.title = isPassword ? 'Hide' : 'Show';
+}
+
 // --- Panel controls ---
 
 function switchPanel(name) {
-    const panels = { form: 'panelForm', editor: 'panelEditor', scripts: 'panelScripts', log: 'panelLog', docs: 'panelDocs', about: 'panelAbout' };
+    const panels = { form: 'panelForm', editor: 'panelEditor', scripts: 'panelScripts', log: 'panelLog', about: 'panelAbout' };
     Object.values(panels).forEach(id => $(id).classList.replace('active', 'hidden'));
     const entering = $(panels[name]);
     entering.classList.replace('hidden', 'active');
@@ -155,8 +166,8 @@ function initAce() {
     });
     aceEditor.commands.addCommand({ name: 'toggleEdit', bindKey: { win: 'Ctrl-E', mac: 'Cmd-E' }, exec: function() { toggleEditMode(); } });
     aceEditor.commands.addCommand({ name: 'formatJSON', bindKey: { win: 'Shift-Alt-F', mac: 'Shift-Alt-F' }, exec: function() { formatAce(); } });
-    aceEditor.commands.addCommand({ name: 'openFindReplace', bindKey: { win: 'Ctrl-H', mac: 'Cmd-Alt-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); toggleFindBar(); } });
-    aceEditor.commands.addCommand({ name: 'openFind', bindKey: { win: 'Ctrl-F', mac: 'Cmd-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); if ($('findBar').classList.contains('hidden')) toggleFindBar(); $('findInput').focus(); } });
+    aceEditor.commands.addCommand({ name: 'openFindReplace', bindKey: { win: 'Ctrl-H', mac: 'Cmd-Alt-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); aceEditor.execCommand('replace'); } });
+    aceEditor.commands.addCommand({ name: 'openFind', bindKey: { win: 'Ctrl-F', mac: 'Cmd-F' }, exec: function() { if ($('editorContent').classList.contains('hidden')) return; switchView('json'); aceEditor.execCommand('find'); } });
     aceEditor.on('change', function() {
         if (!aceEditor.getReadOnly()) {
             const val = aceEditor.getValue();
@@ -186,112 +197,10 @@ function formatAce() {
     } catch (e) { log('error', 'Format failed: ' + e.message); }
 }
 
-// --- Find & Replace ---
+// --- Find & Replace (uses Ace.js built-in dialog) ---
 
-let findMarkers = [];
-let findActive = false;
-
-function toggleFindBar() {
-    const bar = $('findBar');
-    bar.classList.toggle('hidden');
-    findActive = !bar.classList.contains('hidden');
-    $('findReplaceBtn').classList.toggle('active', findActive);
-    if (findActive) {
-        $('findInput').focus();
-        const sel = aceEditor.getSelectedText();
-        if (sel) { $('findInput').value = sel; doFind(); }
-    } else {
-        clearFindMarkers();
-    }
-}
-
-function closeFindBar() {
-    $('findBar').classList.add('hidden');
-    findActive = false;
-    $('findReplaceBtn').classList.remove('active');
-    clearFindMarkers();
-    if (aceEditor) aceEditor.focus();
-}
-
-function toggleReplaceRow() {
-    $('replaceRow').classList.toggle('hidden');
-    const icon = $('toggleReplaceBtn').querySelector('.material-symbols-outlined');
-    icon.textContent = $('replaceRow').classList.contains('hidden') ? 'expand_more' : 'expand_less';
-}
-
-function clearFindMarkers() {
-    if (!aceEditor) return;
-    const session = aceEditor.getSession();
-    findMarkers.forEach(id => session.removeMarker(id));
-    findMarkers = [];
-    $('findCount').textContent = '';
-}
-
-function doFind() {
-    if (!aceEditor) return;
-    clearFindMarkers();
-    const query = $('findInput').value;
-    if (!query) { $('findCount').textContent = ''; return; }
-    const session = aceEditor.getSession();
-    const doc = session.getDocument();
-    const lines = doc.getAllLines();
-    const re = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    let count = 0;
-    const Range = ace.require('ace/range').Range;
-    for (let i = 0; i < lines.length; i++) {
-        let m;
-        re.lastIndex = 0;
-        while ((m = re.exec(lines[i])) !== null) {
-            const range = new Range(i, m.index, i, m.index + m[0].length);
-            const markerId = session.highlight(range, 'findHighlight', 'text');
-            findMarkers.push(markerId);
-            count++;
-        }
-    }
-    $('findCount').textContent = count ? count + ' found' : 'No match';
-}
-
-function findNext() {
-    if (!aceEditor || !$('findInput').value) return;
-    aceEditor.findNext({ wrap: true, caseSensitive: false, wholeWord: false });
-    updateFindCount();
-}
-
-function findPrev() {
-    if (!aceEditor || !$('findInput').value) return;
-    aceEditor.findPrevious({ wrap: true, caseSensitive: false, wholeWord: false });
-    updateFindCount();
-}
-
-function updateFindCount() {
-    const match = aceEditor.getSelectionRange();
-    // We rely on Ace's built-in search count via status
-}
-
-function replaceOne() {
-    if (!aceEditor) return;
-    const find = $('findInput').value;
-    const repl = $('replaceInput').value;
-    if (!find) return;
-    const sel = aceEditor.getSelectedText();
-    if (sel.toLowerCase() === find.toLowerCase()) {
-        aceEditor.replace(repl);
-        doFind();
-        findNext();
-    } else {
-        findNext();
-    }
-}
-
-function replaceAll() {
-    if (!aceEditor) return;
-    const find = $('findInput').value;
-    const repl = $('replaceInput').value;
-    if (!find) return;
-    aceEditor.replaceAll(repl, { needle: find, caseSensitive: false });
-    doFind();
-    log('action', `Replaced all "${find}" with "${repl}"`);
-}
+function toggleFindBar() { if (aceEditor) aceEditor.execCommand('find'); }
+function closeFindBar() { if (aceEditor) aceEditor.execCommand('closesearch'); }
 
 function toggleEditMode() {
     if (currentView !== 'json' || !aceEditor) return;
@@ -494,12 +403,14 @@ function getEndpointData() {
     const rows = $('endpointList').querySelectorAll('.endpoint-row');
     const data = [];
     rows.forEach(row => {
+        const source = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
         data.push({
             name: row.querySelector('.ep-name')?.value?.trim() || '',
             url: row.querySelector('.ep-url')?.value?.trim() || '',
             key: row.querySelector('.ep-key')?.value?.trim() || '',
             secret: row.querySelector('.ep-secret')?.value?.trim() || '',
             apiType: row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions',
+            source: source,
         });
     });
     return data;
@@ -508,64 +419,100 @@ function getEndpointData() {
 function saveEndpoints() {
     const data = getEndpointData();
     try { localStorage.setItem(EP_CACHE_KEY, JSON.stringify(data)); } catch {}
+    updateCurlCommand();
 }
 
-function addEndpoint(name, url, key, secret, apiType) {
+function addEndpoint(name, url, key, secret, apiType, source) {
     endpointIdCounter++;
     const id = endpointIdCounter;
     const at = apiType || 'chat-completions';
+    const src = source || 'url';
     const row = document.createElement('div');
     row.className = 'endpoint-row';
     row.dataset.id = id;
     row.innerHTML = `
-        <div class="endpoint-row-header">
-            <span class="endpoint-row-num"><span class="material-symbols-outlined">dns</span> Endpoint #${id}</span>
+        <div class="endpoint-row-header" onclick="toggleEndpointRow(${id})" style="cursor:pointer">
+            <span class="endpoint-row-num"><span class="material-symbols-outlined ep-chevron">expand_more</span><span class="material-symbols-outlined">dns</span> Endpoint #${id}</span>
             <div class="endpoint-row-actions">
-                <button type="button" class="panel-btn" onclick="fetchSingleEndpoint(${id})" title="Fetch this endpoint"><span class="material-symbols-outlined">bolt</span></button>
-                <button type="button" class="panel-btn" onclick="removeEndpoint(${id})" title="Remove"><span class="material-symbols-outlined">close</span></button>
+                <button type="button" class="panel-btn" onclick="event.stopPropagation();removeEndpoint(${id})" title="Remove"><span class="material-symbols-outlined">close</span></button>
             </div>
         </div>
+        <div class="ep-body">
+            <div class="ep-source-container">
+            <div class="ep-source-combo" data-source="${src}">
+                <label><span class="material-symbols-outlined label-icon">source</span> Source</label>
+                <div class="ep-source-combo-row">
+                    <span class="material-symbols-outlined ep-src-sel-icon">${src === 'url' ? 'link' : src === 'paste' ? 'terminal' : 'upload_file'}</span>
+                    <input type="text" class="ep-source-combo-text" value="${src === 'url' ? 'URL' : src === 'paste' ? 'Paste JSON' : 'Upload'}" placeholder="Select source" readonly autocomplete="off" spellcheck="false">
+                    <button type="button" class="ep-source-combo-toggle" tabindex="-1"><span class="material-symbols-outlined">expand_more</span></button>
+                </div>
+                <div class="ep-source-combo-dropdown"></div>
+            </div>
+        <div class="ep-source ep-source-url${src !== 'url' ? ' hidden' : ''}" data-source="url">
+            <label><span class="material-symbols-outlined label-icon">link</span> Endpoint URL</label>
+            <div class="input-row">
+                <input type="text" class="ep-url" value="${escHtml(url || '')}" placeholder="http://localhost:20128/v1/models">
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+            </div>
+            <label><span class="material-symbols-outlined label-icon">key</span> Endpoint API Key</label>
+            <div class="input-row">
+                <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx">
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility_off</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+            </div>
+            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span> URL points to a <code>/v1/models</code> endpoint. API Key is sent as Bearer token in the <code>Authorization</code> header.</div>
+        </div>
+        <div class="ep-source ep-source-paste${src !== 'paste' ? ' hidden' : ''}" data-source="paste">
+            <label><span class="material-symbols-outlined label-icon">terminal</span> Paste raw JSON from /v1/models</label>
+            <textarea class="ep-paste-area" placeholder='{"object":"list","data":[{"id":"gpt-4o","capabilities":{...}}]}'></textarea>
+            <div class="ep-paste-hint">Response must have <code>object: "list"</code> with a <code>data</code> array.</div>
+        </div>
+        <div class="ep-source ep-source-upload${src !== 'upload' ? ' hidden' : ''}" data-source="upload">
+            <label><span class="material-symbols-outlined label-icon">upload_file</span> Upload models_raw.json</label>
+            <div class="ep-upload-zone">
+                <input type="file" accept=".json" class="ep-file-input">
+                <label class="ep-upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop .json here</label>
+            </div>
+            <div class="ep-paste-hint">Upload a <code>models_raw.json</code> file fetched from a <code>/v1/models</code> endpoint.</div>
+        </div>
+        </div>
+        <div class="ep-divider"></div>
         <div class="field">
             <label><span class="material-symbols-outlined label-icon">badge</span> Endpoint Name</label>
             <div class="input-row">
                 <input type="text" class="ep-name" value="${escHtml(name || '9Router')}" placeholder="Provider name">
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
                 <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                 <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
         </div>
         <div class="field">
-            <label><span class="material-symbols-outlined label-icon">link</span> Endpoint URL</label>
-            <div class="input-row">
-                <input type="text" class="ep-url" value="${escHtml(url || '')}" placeholder="http://localhost:20128/v1/models">
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
-            </div>
-        </div>
-        <div class="field">
-            <label><span class="material-symbols-outlined label-icon">key</span> API Key</label>
-            <div class="input-row">
-                <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx">
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
-            </div>
-        </div>
-        <div class="field">
-            <label><span class="material-symbols-outlined label-icon">lock</span> Secret Reference</label>
+            <label><span class="material-symbols-outlined label-icon">lock</span> Secret API Key</label>
             <div class="input-row">
                 <input type="text" class="ep-secret" value="${escHtml(secret || '')}" placeholder="\${input:chat.lm.secret.-65d90303}">
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
                 <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                 <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
+            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span> Obtainable from VSCode <code>chatLanguageModels.json</code></div>
         </div>
         <div class="field">
             <label><span class="material-symbols-outlined label-icon">api</span> API Type</label>
             <div class="ep-apiType-wrap" data-value="${escHtml(at)}">
                 <div class="ep-apiType-input-row">
+                    <span class="material-symbols-outlined ep-apiType-sel-icon">${at === 'chat-completions' ? 'chat' : at === 'responses' ? 'smart_toy' : 'forum'}</span>
                     <input type="text" class="ep-apiType-text" value="${escHtml(at === 'chat-completions' ? 'Chat Completions' : at === 'responses' ? 'Responses' : 'Messages')}" placeholder="Select API type" readonly autocomplete="off" spellcheck="false">
                     <button type="button" class="ep-apiType-toggle" tabindex="-1"><span class="material-symbols-outlined">expand_more</span></button>
                 </div>
                 <div class="ep-apiType-dropdown"></div>
             </div>
+        </div>
+        <div class="ep-fetch-row">
+            <button type="button" class="ep-fetch-btn" id="epFetchBtn${id}" onclick="fetchEndpointAndShow(${id})" title="Fetch this endpoint only"><span class="material-symbols-outlined ep-fetch-icon">${src === 'url' ? 'bolt' : 'auto_fix_high'}</span> ${src === 'url' ? 'Fetch' : 'Generate'}</button>
+        </div>
         </div>
         <div class="ep-status" id="epStatus${id}"></div>
     `;
@@ -578,8 +525,14 @@ function addEndpoint(name, url, key, secret, apiType) {
     // Listen for changes to save
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', saveEndpoints));
 
+    // Init source combobox
+    initSourceCombobox(row, id);
+
     // Init API Type combobox
     initApiTypeCombobox(row);
+
+    // Init upload zone drag-and-drop + file handler
+    initEndpointUploadZone(row, id);
 
     $('endpointList').appendChild(row);
     saveEndpoints();
@@ -620,6 +573,163 @@ function setEndpointStatus(id, type, msg) {
     const cls = { loading: 'ep-loading', ok: 'ep-ok', err: 'ep-err', idle: '' };
     el.className = 'ep-status ' + (cls[type] || '');
     el.innerHTML = type === 'idle' ? '' : `<span class="material-symbols-outlined">${icons[type] || ''}</span> ${escHtml(msg)}`;
+}
+
+// --- Source tab switching ---
+
+function updateFetchBtn(id) {
+    const row = $('endpointList')?.querySelector(`[data-id="${id}"]`);
+    if (!row) return;
+    const src = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
+    const btn = row.querySelector('.ep-fetch-btn');
+    if (!btn) return;
+    const isUrl = src === 'url';
+    btn.querySelector('.ep-fetch-icon').textContent = isUrl ? 'bolt' : 'auto_fix_high';
+    btn.childNodes[btn.childNodes.length - 1].textContent = isUrl ? ' Fetch' : ' Generate';
+    btn.title = isUrl ? 'Fetch this endpoint only' : 'Generate from pasted/uploaded JSON';
+}
+
+function switchSource(id, sourceType) {
+    const row = $('endpointList').querySelector(`[data-id="${id}"]`);
+    if (!row) return;
+    const combo = row.querySelector('.ep-source-combo');
+    if (combo) { combo.dataset.source = sourceType; const opt = SOURCE_OPTIONS.find(o => o.value === sourceType); const inp = combo.querySelector('.ep-source-combo-text'); if (inp && opt) inp.value = opt.label; const ic = combo.querySelector('.ep-src-sel-icon'); if (ic && opt) ic.textContent = opt.icon; }
+    row.querySelectorAll('.ep-source').forEach(p => p.classList.toggle('hidden', p.dataset.source !== sourceType));
+    updateFetchBtn(id);
+    saveEndpoints();
+    log('action', `Endpoint #${id}: source → ${sourceType}`);
+}
+
+function initEndpointUploadZone(row, id) {
+    const zone = row.querySelector('.ep-upload-zone');
+    const input = row.querySelector('.ep-file-input');
+    if (!zone || !input) return;
+    ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
+    zone.addEventListener('drop', e => {
+        const file = e.dataTransfer.files[0];
+        if (file) handleEndpointFile(row, file);
+    });
+    input.addEventListener('change', e => {
+        if (e.target.files[0]) handleEndpointFile(row, e.target.files[0]);
+    });
+}
+
+function handleEndpointFile(row, file) {
+    log('action', `Uploading file: ${file.name}`);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.object !== 'list') { setStatus('Invalid format: expected object="list".', 'err'); log('error', 'Invalid format in uploaded file'); return; }
+            row.querySelector('.ep-paste-area').value = text;
+            row.querySelector('.ep-upload-zone').classList.add('has-file');
+            row.querySelector('.ep-upload-label').innerHTML = `<span class="material-symbols-outlined upload-icon">check_circle</span> ${escHtml(file.name)} (${(parsed.data || []).length} models)`;
+            setStatus('File loaded: ' + file.name, 'info');
+            log('success', `File loaded: ${file.name} (${(parsed.data || []).length} models)`);
+        } catch { setStatus('Invalid JSON in file.', 'err'); log('error', 'Invalid JSON in uploaded file'); }
+    };
+    reader.readAsText(file);
+}
+
+// --- Source Combobox ---
+
+const SOURCE_OPTIONS = [
+    { value: 'url', label: 'URL', icon: 'link', desc: 'Fetch from endpoint' },
+    { value: 'paste', label: 'Paste JSON', icon: 'terminal', desc: 'Paste raw /v1/models' },
+    { value: 'upload', label: 'Upload', icon: 'upload_file', desc: 'Upload JSON file' },
+];
+
+function initSourceCombobox(row, id) {
+    const wrap = row.querySelector('.ep-source-combo');
+    if (!wrap) return;
+    const inputRow = wrap.querySelector('.ep-source-combo-row');
+    const input = wrap.querySelector('.ep-source-combo-text');
+    const toggle = wrap.querySelector('.ep-source-combo-toggle');
+    const dropdown = wrap.querySelector('.ep-source-combo-dropdown');
+    let activeIdx = -1;
+    let blurTimer = null;
+
+    function renderOptions() {
+        let html = '';
+        SOURCE_OPTIONS.forEach((opt, idx) => {
+            const sel = wrap.dataset.source === opt.value;
+            html += `<div class="ep-src-opt${sel ? ' selected' : ''}" data-val="${opt.value}" data-idx="${idx}">` +
+                `<span class="material-symbols-outlined ep-src-opt-icon">${opt.icon}</span>` +
+                `<span class="ep-src-opt-label">${opt.label}</span>` +
+                `<span class="ep-src-opt-val">${opt.desc}</span></div>`;
+        });
+        dropdown.innerHTML = html;
+        dropdown.querySelectorAll('.ep-src-opt').forEach(el => {
+            el.addEventListener('mousedown', e => {
+                e.preventDefault();
+                selectOption(el.dataset.val);
+            });
+        });
+    }
+
+    function selectOption(val) {
+        const opt = SOURCE_OPTIONS.find(o => o.value === val);
+        if (!opt) return;
+        wrap.dataset.source = val;
+        input.value = opt.label;
+        close();
+        switchSource(id, val);
+    }
+
+    function open() {
+        clearTimeout(blurTimer);
+        renderOptions();
+        activeIdx = -1;
+        wrap.classList.add('open');
+    }
+
+    function close() {
+        wrap.classList.remove('open');
+        const cur = SOURCE_OPTIONS.find(o => o.value === wrap.dataset.source);
+        input.value = cur ? cur.label : '';
+        const iconEl = wrap.querySelector('.ep-src-sel-icon');
+        if (iconEl && cur) iconEl.textContent = cur.icon;
+    }
+
+    function isOpen() { return wrap.classList.contains('open'); }
+
+    function moveActive(dir) {
+        const items = dropdown.querySelectorAll('.ep-src-opt');
+        if (!items.length) return;
+        items.forEach(el => el.classList.remove('active'));
+        activeIdx = (activeIdx + dir + items.length) % items.length;
+        items[activeIdx].classList.add('active');
+        items[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    toggle.addEventListener('mousedown', e => { e.preventDefault(); isOpen() ? close() : open(); });
+    input.addEventListener('mousedown', e => { e.preventDefault(); isOpen() ? close() : open(); });
+    input.addEventListener('keydown', e => {
+        if (!isOpen()) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+            return;
+        }
+        switch (e.key) {
+            case 'ArrowDown': e.preventDefault(); moveActive(1); break;
+            case 'ArrowUp': e.preventDefault(); moveActive(-1); break;
+            case 'Enter': {
+                e.preventDefault(); e.stopPropagation();
+                const items = dropdown.querySelectorAll('.ep-src-opt');
+                if (activeIdx >= 0 && activeIdx < items.length) selectOption(items[activeIdx].dataset.val);
+                break;
+            }
+            case 'Escape': e.preventDefault(); e.stopPropagation(); close(); break;
+            case 'Tab': close(); break;
+        }
+    });
+    input.addEventListener('blur', () => { blurTimer = setTimeout(close, 150); });
+    dropdown.addEventListener('mousedown', e => e.preventDefault());
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && isOpen()) { e.preventDefault(); close(); }
+    }, true);
+    close();
 }
 
 // --- API Type Combobox ---
@@ -688,6 +798,8 @@ function initApiTypeCombobox(row) {
         input.setAttribute('readonly', '');
         const cur = API_TYPE_OPTIONS.find(o => o.value === wrap.dataset.value);
         input.value = cur ? cur.label : wrap.dataset.value;
+        const iconEl = wrap.querySelector('.ep-apiType-sel-icon');
+        if (iconEl && cur) iconEl.textContent = cur.icon;
     }
 
     function isOpen() { return wrap.classList.contains('open'); }
@@ -768,7 +880,7 @@ function loadEndpoints() {
         if (!Array.isArray(data) || data.length === 0) {
             addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
         } else {
-            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.secret, ep.apiType));
+            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.secret, ep.apiType, ep.source));
         }
     } catch {
         addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
@@ -807,11 +919,18 @@ function convertModels(raw, modelsUrl, providerName, apiKey, apiType) {
         });
     }
 
+    // Auto-generate secret reference if user left it empty
+    let secretRef = apiKey;
+    if (!secretRef) {
+        const hex = Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0');
+        secretRef = '\${input:chat.lm.secret.-' + hex + '}';
+    }
+
     return {
         provider: {
             name: providerName || '9Router',
             vendor: 'customendpoint',
-            apiKey: apiKey || '\${input:chat.lm.secret.-65d90303}',
+            apiKey: secretRef,
             apiType: apiType || 'chat-completions',
             models
         },
@@ -825,6 +944,7 @@ function showResult(data, total) {
     lastResult = data;
     const json = JSON.stringify(data, null, '\t');
     const providerCount = Array.isArray(data) ? data.length : 1;
+    $('installHint').classList.remove('hidden');
     setStatus(`Done! Total: ${total} models from ${providerCount} endpoint(s)`, 'ok');
     showToast('ok', `${total} models from ${providerCount} endpoint(s)`);
     $('editorEmpty').classList.add('hidden');
@@ -917,37 +1037,58 @@ function clearCache() {
     setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) { s.classList.add('status-exit'); s.addEventListener('animationend', () => { s.className = 'status'; s.classList.remove('status-exit'); }, { once: true }); } }, 2000);
 }
 
-// --- Tabs ---
-
-function switchTab(tab) {
-    $('tabFetch').classList.toggle('active', tab === 'fetch');
-    $('tabPaste').classList.toggle('active', tab === 'paste');
-    const entering = tab === 'fetch' ? $('fetchPanel') : $('pastePanel');
-    const leaving  = tab === 'fetch' ? $('pastePanel') : $('fetchPanel');
-    leaving.classList.add('hidden');
-    leaving.classList.remove('crossfade-in');
-    entering.classList.remove('hidden');
-    entering.classList.remove('crossfade-in');
-    void entering.offsetWidth;
-    entering.classList.add('crossfade-in');
-    $('status').className = 'status';
-    log('action', `Switched to ${tab} tab`);
-}
-
 // --- Fetch single endpoint ---
+
+async function fetchEndpointAndShow(id) {
+    const provider = await fetchSingleEndpoint(id);
+    if (provider) {
+        const total = provider.models ? provider.models.length : 0;
+        showResult([provider], total);
+        switchPanel('editor');
+    }
+}
 
 async function fetchSingleEndpoint(id) {
     const row = $('endpointList').querySelector(`[data-id="${id}"]`);
     if (!row) return;
-
     const name = row.querySelector('.ep-name')?.value?.trim() || '';
-    const url = row.querySelector('.ep-url')?.value?.trim() || '';
     const key = row.querySelector('.ep-key')?.value?.trim() || '';
     const secret = row.querySelector('.ep-secret')?.value?.trim() || '';
     const apiType = row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions';
+    const source = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
 
+    // --- Paste source ---
+    if (source === 'paste') {
+        const rawText = row.querySelector('.ep-paste-area')?.value?.trim();
+        if (!rawText) { setEndpointStatus(id, 'err', 'Paste JSON first'); log('error', `Endpoint #${id}: no JSON pasted`); return; }
+        let raw;
+        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', 'Invalid JSON'); log('error', `Endpoint #${id}: invalid JSON`); return; }
+        if (raw.object !== 'list') { setEndpointStatus(id, 'err', 'Expected object="list"'); log('error', `Endpoint #${id}: expected object="list"`); return; }
+        const count = (raw.data || []).length;
+        setEndpointStatus(id, 'ok', `${count} models from pasted JSON`);
+        log('success', `Endpoint #${id} (${name || 'paste'}): ${count} models`);
+        const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
+        return provider;
+    }
+
+    // --- Upload source ---
+    if (source === 'upload') {
+        const rawText = row.querySelector('.ep-paste-area')?.value?.trim();
+        if (!rawText) { setEndpointStatus(id, 'err', 'Upload a file first'); log('error', `Endpoint #${id}: no file uploaded`); return; }
+        let raw;
+        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', 'Invalid JSON in file'); log('error', `Endpoint #${id}: invalid JSON`); return; }
+        if (raw.object !== 'list') { setEndpointStatus(id, 'err', 'Expected object="list"'); log('error', `Endpoint #${id}: expected object="list"`); return; }
+        const count = (raw.data || []).length;
+        setEndpointStatus(id, 'ok', `${count} models from uploaded file`);
+        log('success', `Endpoint #${id} (${name || 'upload'}): ${count} models`);
+        const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
+        return provider;
+    }
+
+    // --- URL source (default) ---
+    const url = row.querySelector('.ep-url')?.value?.trim() || '';
     if (!url) { setEndpointStatus(id, 'err', 'Endpoint URL is required'); log('error', `Endpoint #${id}: URL required`); return; }
-    if (!key) { setEndpointStatus(id, 'err', 'API Key is required'); log('error', `Endpoint #${id}: API Key required`); return; }
+    if (!key) { setEndpointStatus(id, 'err', 'Endpoint API Key is required'); log('error', `Endpoint #${id}: Endpoint API Key required`); return; }
 
     setEndpointStatus(id, 'loading', 'Fetching...');
     log('action', `Fetching endpoint #${id}: ${url}`);
@@ -999,19 +1140,24 @@ async function runFetchAll() {
 
     // Validate all
     for (let i = 0; i < rows.length; i++) {
-        const url = rows[i].querySelector('.ep-url')?.value?.trim();
-        const key = rows[i].querySelector('.ep-key')?.value?.trim();
-        const secret = rows[i].querySelector('.ep-secret')?.value?.trim();
-        if (!url || !key) {
-            setStatus(`Endpoint #${i + 1}: URL and API Key are required.`, 'err');
-            log('error', `Endpoint #${i + 1}: URL and API Key required`);
-            return;
+        const source = rows[i].querySelector('.ep-source-combo')?.dataset?.source || 'url';
+        if (source === 'url') {
+            const url = rows[i].querySelector('.ep-url')?.value?.trim();
+            const key = rows[i].querySelector('.ep-key')?.value?.trim();
+            if (!url || !key) {
+                setStatus(`Endpoint #${i + 1}: URL and Endpoint API Key are required.`, 'err');
+                log('error', `Endpoint #${i + 1}: URL and Endpoint API Key required`);
+                return;
+            }
+        } else {
+            const rawText = rows[i].querySelector('.ep-paste-area')?.value?.trim();
+            if (!rawText) {
+                setStatus(`Endpoint #${i + 1}: Paste JSON or upload a file.`, 'err');
+                log('error', `Endpoint #${i + 1}: no JSON provided`);
+                return;
+            }
         }
-        if (!secret) {
-            setStatus(`Endpoint #${i + 1}: Secret Reference is required for output JSON.`, 'err');
-            log('error', `Endpoint #${i + 1}: Secret Reference required`);
-            return;
-        }
+        // Secret API Key is optional — auto-generated if left empty
     }
 
     btn.disabled = true;
@@ -1022,10 +1168,11 @@ async function runFetchAll() {
     try {
         log('action', `Fetching ${rows.length} endpoint(s)...`);
 
-        // Check mixed content for any
+        // Check mixed content for any URL sources
         let hasMixed = false;
         rows.forEach(row => {
-            if (isMixedContent(row.querySelector('.ep-url')?.value?.trim())) hasMixed = true;
+            const src = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
+            if (src === 'url' && isMixedContent(row.querySelector('.ep-url')?.value?.trim())) hasMixed = true;
         });
         $('corsHint').classList.toggle('hidden', !hasMixed);
 
@@ -1059,22 +1206,6 @@ async function runFetchAll() {
     }
 }
 
-// --- Paste mode ---
-
-function runPaste() {
-    const rawText = $('pasteInput').value.trim();
-    if (!rawText) { setStatus('Paste JSON response first.', 'err'); showToast('err', 'Paste JSON first'); log('error', 'No JSON pasted'); return; }
-
-    let raw;
-    try { raw = JSON.parse(rawText); } catch { setStatus('Invalid JSON.', 'err'); showToast('err', 'Invalid JSON'); log('error', 'Invalid JSON pasted'); return; }
-    if (raw.object !== 'list') { setStatus('Invalid format: expected object="list".', 'err'); showToast('err', 'Expected object="list"'); log('error', 'Invalid format: expected object="list"'); return; }
-
-    log('action', 'Converting pasted JSON');
-    const modelsUrl = 'http://localhost:20128/v1';
-    const { provider } = convertModels(raw, modelsUrl, $('pasteProviderName').value.trim(), ($('pasteSecret')?.value?.trim() || $('pasteApiKey')?.value?.trim()));
-    showResult([provider], provider.models.length);
-}
-
 // --- Download / Copy ---
 
 function download() {
@@ -1082,9 +1213,7 @@ function download() {
     if (!json) { log('warn', 'Nothing to download'); return; }
     const dlBtn = document.querySelector('.scripts-dl-all-btn') || $('downloadBtn');
     if (dlBtn) animateIcon(dlBtn, 'icon-check');
-    const outFile = $('pastePanel').classList.contains('hidden')
-        ? ($('outputFile').value.trim() || 'chatLanguageModels.json')
-        : ($('pasteOutputFile').value.trim() || 'chatLanguageModels.json');
+    const outFile = $('outputFile').value.trim() || 'chatLanguageModels.json';
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1314,196 +1443,214 @@ async function downloadScript(file) {
     }
 }
 
-// --- File upload ---
+// --- Collapsible toggles ---
 
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    log('action', `Uploading file: ${file.name}`);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result;
-        try {
-            const parsed = JSON.parse(text);
-            if (parsed.object !== 'list') {
-                setStatus('Invalid format: expected object="list".', 'err');
-                log('error', 'Invalid format in uploaded file');
-                return;
-            }
-            $('pasteInput').value = text;
-            $('uploadZone').classList.add('has-file');
-            setStatus('File loaded: ' + file.name + ' (' + (parsed.data || []).length + ' models)', 'info');
-            log('success', `File loaded: ${file.name} (${(parsed.data || []).length} models)`);
-            setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 3000);
-        } catch {
-            setStatus('Invalid JSON in uploaded file.', 'err');
-            log('error', 'Invalid JSON in uploaded file');
-        }
-    };
-    reader.readAsText(file);
+function toggleHowto() {
+    const box = document.querySelector('.howto-hint');
+    if (!box) return;
+    box.classList.toggle('collapsed');
+    try { localStorage.setItem('9router_howto_collapsed', box.classList.contains('collapsed') ? '1' : '0'); } catch {}
 }
 
-// --- Dynamic curl command (paste panel) ---
+function toggleEndpointRow(id) {
+    const row = $('endpointList')?.querySelector(`[data-id="${id}"]`);
+    if (!row) return;
+    row.classList.toggle('collapsed');
+    const chevron = row.querySelector('.ep-chevron');
+    if (chevron) chevron.style.transform = row.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+}
+
+// --- Dynamic curl command ---
 
 function updateCurlCommand() {
-    const url = ($('pasteInput')?.closest('.container')?.querySelector('.ep-url')?.value || '').trim() || 'http://localhost:20128/v1/models';
-    const key = 'YOUR_TOKEN';
-    const endpoint = buildEndpoint(url);
-    const cmd = `curl -s -H "Authorization: Bearer ${key}" ${endpoint}`;
-    const el = $('curlCommand');
-    if (el) el.textContent = cmd;
+    const list = $('curlCommandList');
+    if (!list) return;
+    const rows = $('endpointList')?.querySelectorAll('.endpoint-row');
+    if (!rows || rows.length === 0) { list.innerHTML = ''; return; }
+    let html = '';
+    rows.forEach(row => {
+        const source = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
+        if (source !== 'url') return;
+        const url = row.querySelector('.ep-url')?.value?.trim();
+        const key = row.querySelector('.ep-key')?.value?.trim();
+        if (!url) return;
+        const endpoint = buildEndpoint(url);
+        const displayKey = key ? key.substring(0, 4) + '...' + key.substring(key.length - 4) : 'YOUR_TOKEN';
+        const name = row.querySelector('.ep-name')?.value?.trim() || url;
+        html += `<div class="curl-cmd-item"><span class="curl-cmd-label">${escHtml(name)}</span><div class="curl-box"><code class="curl-cmd-code" data-cmd="${escHtml('curl -s -H "Authorization: Bearer ' + (key || 'YOUR_TOKEN') + '" ' + endpoint)}">curl -s -H "Authorization: Bearer ${escHtml(displayKey)}" ${escHtml(endpoint)}</code><button class="copy-curl-btn" onclick="copySingleCurl(this)" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span></button></div></div>`;
+    });
+    list.innerHTML = html;
+}
+
+function copySingleCurl(btn) {
+    const code = btn.closest('.curl-box')?.querySelector('.curl-cmd-code');
+    if (!code) return;
+    navigator.clipboard.writeText(code.dataset.cmd).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+        setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        log('success', 'curl command copied');
+    }).catch(() => {});
 }
 
 function copyCurlCommand() {
-    const el = $('curlCommand');
+    const codes = document.querySelectorAll('.curl-cmd-code');
+    if (codes.length === 0) return;
+    const all = Array.from(codes).map(c => c.dataset.cmd).join('\n');
+    navigator.clipboard.writeText(all).then(() => {
+        const btn = $('curlCommandList')?.closest('.hint-box')?.querySelector('.copy-curl-btn');
+        if (btn) {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        }
+        log('success', 'All curl commands copied');
+    }).catch(() => {});
+}
+
+function copyInstallPath() {
+    const el = $('installPath');
     if (!el) return;
-    navigator.clipboard.writeText(el.textContent).then(() => {
+    const path = el.textContent;
+    navigator.clipboard.writeText(path).then(() => {
         const btn = el.closest('.hint-box')?.querySelector('.copy-curl-btn');
         if (btn) {
             const orig = btn.innerHTML;
             btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
             setTimeout(() => { btn.innerHTML = orig; }, 1500);
         }
-        log('success', 'curl command copied to clipboard');
+        log('success', 'Install path copied to clipboard');
     }).catch(() => {});
 }
 
 // --- Init ---
 
-function initDocsPanel() {
-    const el = $('docsContent');
-    if (!el) return;
-    el.innerHTML = `
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">menu_book</span> What It Does</h2>
-<p>VSCode Modelator fetches model lists from any OpenAI-compatible <code>/v1/models</code> endpoint and converts them into <code>chatLanguageModels.json</code> &#8212; the file VS Code reads to populate the Copilot Chat model picker.</p>
-<p>Single-file browser app. No server, no install, no analytics. The JSON output is the product.</p>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">bolt</span> How To Use It</h2>
-<ol>
-<li><strong>Add an endpoint.</strong> In <span class="docs-kbd">Form</span>, paste the API base URL and authentication key. The URL should resolve to a <code>/v1/models</code> endpoint or its root.</li>
-<li><strong>Fetch.</strong> Click <span class="docs-kbd">Fetch All &amp; Merge</span>. Each endpoint is queried, responses normalized, and results merged into one list.</li>
-<li><strong>Inspect.</strong> Switch to <span class="docs-kbd">Editor</span>. Toggle between Tree and Code view. Edit mode enables direct modification of the JSON.</li>
-<li><strong>Save.</strong> Click <span class="docs-kbd">Download</span>. Place the file in your VS Code user directory (see paths below), restart VS Code.</li>
-</ol>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">route</span> When Direct Fetch Fails</h2>
-<p>Firewalls, localhost-only networks, and CORS policies can block browser requests. Use the offline path:</p>
-<ol>
-<li>Open <span class="docs-kbd">Scripts</span></li>
-<li>Pick your OS and a mode (curl, Python, or PowerShell)</li>
-<li>Run the downloaded script on a machine with API access</li>
-<li>Copy the output JSON into the <span class="docs-kbd">Paste JSON</span> tab in the Editor panel</li>
-</ol>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">keyboard</span> Keyboard Shortcuts</h2>
-<table class="docs-table">
-<thead><tr><th>Key</th><th>Action</th></tr></thead>
-<tbody>
-<tr><td><span class="docs-kbd">Ctrl + E</span></td><td>Toggle edit mode</td></tr>
-<tr><td><span class="docs-kbd">Ctrl + F</span></td><td>Open Find &amp; Replace</td></tr>
-<tr><td><span class="docs-kbd">Shift + Alt + F</span></td><td>Format / pretty-print JSON</td></tr>
-<tr><td><span class="docs-kbd">Escape</span></td><td>Close Find bar</td></tr>
-</tbody>
-</table>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">settings</span> Response Formats</h2>
-<p>The converter normalizes these shapes automatically:</p>
-<ul>
-<li><strong>OpenAI standard</strong> &#8212; <code>{"object":"list","data":[...]}</code></li>
-<li><strong>Capabilities envelope</strong> &#8212; <code>{"id":"model","capabilities":{...}}</code></li>
-<li><strong>Flat array</strong> &#8212; <code>[{"id":"model1"},...]</code></li>
-<li><strong>Vercel AI SDK</strong> &#8212; <code>{"models":[...]}</code></li>
-</ul>
-<p>Unrecognized formats still render in the editor &#8212; inspect and fix manually.</p>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">key</span> API Key &amp; Secret Reference</h2>
-<p>Each endpoint has two separate credential fields:</p>
-<ul>
-<li><strong>API Key</strong> &#8212; your real credential (e.g. <code>sk-xxxx</code>) used <em>only</em> to authenticate against the <code>/v1/models</code> endpoint during fetch. Never written to the output file.</li>
-<li><strong>Secret Reference</strong> &#8212; a VS Code secret input reference like <code>\${input:chat.lm.secret.-65d90303}</code>. This is what gets stored in <code>chatLanguageModels.json</code>. When you select the model in Copilot Chat, VS Code prompts you for the actual key through its secure dialog.</li>
-</ul>
-<p>This separation means the generated JSON file can be shared, backed up, or inspected without leaking credentials.</p>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">folder</span> File Placement</h2>
-<table class="docs-table">
-<thead><tr><th>OS</th><th>Path</th></tr></thead>
-<tbody>
-<tr><td>Windows</td><td><code>%APPDATA%\Code\User\</code></td></tr>
-<tr><td>macOS</td><td><code>~/Library/Application Support/Code/User/</code></td></tr>
-<tr><td>Linux</td><td><code>~/.config/Code/User/</code></td></tr>
-</tbody>
-</table>
-<p>Restart VS Code after placing the file.</p>
-</div>`;
+function renderMarkdown(md) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const inline = s => s
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const lines = md.split('\n');
+    // First pass: collect headings for TOC (skip h1, only h2+)
+    const headings = [];
+    for (const l of lines) {
+        const m = l.match(/^(#{2,6})\s+(.+)/);
+        if (m) { const lvl = m[1].length; const txt = m[2].replace(/[*_`]/g, ''); headings.push({ lvl, txt, id: slug(txt) }); }
+    }
+    // Build TOC
+    let toc = '';
+    if (headings.length > 1) {
+        toc = '<nav class="markdown-toc"><div class="toc-title"><span class="material-symbols-outlined">list</span> Table of Contents</div><ul class="toc-list">';
+        headings.forEach(h => {
+            const indent = h.lvl - 2;
+            toc += `<li class="toc-item toc-lv${h.lvl}" style="--toc-indent:${indent}"><a href="#${h.id}">${esc(h.txt)}</a></li>`;
+        });
+        toc += '</ul></nav>';
+    }
+    // Second pass: render HTML
+    let html = '', inCode = false, inTable = false, inUl = false, inOl = false;
+    const closeLists = () => { if (inUl) { html += '</ul>'; inUl = false; } if (inOl) { html += '</ol>'; inOl = false; } };
+    const closeTable = () => { if (inTable) { html += '</tbody></table>'; inTable = false; } };
+    for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        // Fenced code blocks
+        if (l.trimStart().startsWith('```')) { closeLists(); closeTable(); inCode = !inCode; html += inCode ? '<pre><code>' : '</code></pre>'; continue; }
+        if (inCode) { html += esc(l) + '\n'; continue; }
+        // Headings (with id for anchor links)
+        const h = l.match(/^(#{1,6})\s+(.+)/);
+        if (h) { closeLists(); closeTable(); const lvl = h[1].length; const txt = h[2].replace(/[*_`]/g, ''); const id = lvl >= 2 ? ` id="${slug(txt)}"` : ''; html += `<h${lvl}${id}>${inline(esc(h[2]))}</h${lvl}>`; continue; }
+        // Table rows
+        if (l.match(/^\|(.+)\|\s*$/)) {
+            closeLists();
+            const cells = l.split('|').slice(1, -1).map(c => c.trim());
+            if (cells.every(c => /^:?-+:?$/.test(c))) { continue; }
+            if (!inTable) { html += '<table><thead><tr>' + cells.map(c => `<th>${inline(esc(c))}</th>`).join('') + '</tr></thead><tbody>'; inTable = true; }
+            else { html += '<tr>' + cells.map(c => `<td>${inline(esc(c))}</td>`).join('') + '</tr>'; }
+            continue;
+        }
+        closeTable();
+        // Unordered list
+        const ul = l.match(/^[-*]\s+(.+)/);
+        if (ul && !l.match(/^\|/)) { closeTable(); if (!inUl && !inOl) { closeLists(); html += '<ul>'; inUl = true; } html += `<li>${inline(esc(ul[1]))}</li>`; continue; }
+        // Ordered list
+        const ol = l.match(/^\d+\.\s+(.+)/);
+        if (ol) { if (!inOl && !inUl) { closeLists(); html += '<ol>'; inOl = true; } html += `<li>${inline(esc(ol[1]))}</li>`; continue; }
+        closeLists();
+        // Blockquote
+        if (l.match(/^>\s+/)) { html += `<blockquote><p>${inline(esc(l.replace(/^>\s+/, '')))}</p></blockquote>`; continue; }
+        // Horizontal rule
+        if (l.match(/^---+$/)) { html += '<hr>'; continue; }
+        // Blank line
+        if (l.trim() === '') continue;
+        // Raw HTML pass-through (e.g. <p>, <div>, <hr/>)
+        if (l.trimStart().startsWith('<')) { html += l + '\n'; continue; }
+        // Paragraph
+        html += `<p>${inline(esc(l))}</p>`;
+    }
+    closeLists(); closeTable();
+    return { toc, body: html };
 }
 
 function initAboutPanel() {
     const el = $('aboutContent');
     if (!el) return;
-    el.innerHTML = `
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">info</span> What This Is</h2>
-<p>VSCode Modelator is a browser-based tool that generates <code>chatLanguageModels.json</code> &#8212; the configuration file VS Code uses to register custom model providers in Copilot Chat.</p>
-<p>It was built because maintaining that JSON by hand across multiple API providers is error-prone and tedious.</p>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">code</span> How It Works</h2>
-<p>Each configured endpoint receives a GET request to its <code>/v1/models</code> path. The response is parsed, model entries normalized into a consistent schema, and results from all endpoints merged into a single file.</p>
-<p>All processing happens in the browser. No data is transmitted except the API requests you explicitly configure.</p>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">key</span> API Key &amp; Secret Reference</h2>
-<p>Each endpoint provides two credential fields:</p>
-<ul>
-<li><strong>API Key</strong> &#8211; your real credential used only to fetch from the endpoint. Never stored in output.</li>
-<li><strong>Secret Reference</strong> &#8211; the VS Code secret input reference (e.g. <code>\${input:chat.lm.secret.-65d90303}</code>) written to the output JSON. VS Code prompts for the actual key at runtime.</li>
-</ul>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">build</span> Under The Hood</h2>
-<table class="docs-table">
-<thead><tr><th>Layer</th><th>Implementation</th></tr></thead>
-<tbody>
-<tr><td>Editor</td><td>Ace.js 1.32.7 with tree view overlay</td></tr>
-<tr><td>Fonts</td><td>Inter + JetBrains Mono via Google Fonts</td></tr>
-<tr><td>Icons</td><td>Google Material Symbols Outlined</td></tr>
-<tr><td>Architecture</td><td>Single HTML file, vanilla CSS and JavaScript, zero build step</td></tr>
-<tr><td>Theme</td><td>Dark / light toggle, persisted in localStorage</td></tr>
-<tr><td>Storage</td><td>Endpoint configs and preview cache in localStorage</td></tr>
-</tbody>
-</table>
-</div>
-
-<div class="docs-section">
-<h2><span class="material-symbols-outlined">gavel</span> License</h2>
-<p>Public domain. Use it, fork it, modify it, ship it in a product. No warranty, no attribution required. If it breaks your model picker, the fix is in <code>index.html</code> &#8212; it is ~250 lines of HTML.</p>
-</div>`;
+    el.innerHTML = '<div class="docs-loading"><span class="material-symbols-outlined spinning">progress_activity</span> Loading documentation...</div>';
+    fetch('README.md').then(r => {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+    }).then(md => {
+        const { toc, body } = renderMarkdown(md);
+        el.innerHTML = toc
+            ? `<div class="about-layout"><aside class="about-toc">${toc}</aside><div class="about-docs markdown-body">${body}</div></div>`
+            : `<div class="about-docs markdown-body">${body}</div>`;
+        // Smooth scroll for TOC anchor links
+        el.addEventListener('click', e => {
+            const a = e.target.closest('a[href^="#"]');
+            if (!a) return;
+            const t = el.querySelector('#' + CSS.escape(a.getAttribute('href').slice(1)));
+            if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        });
+        // Highlight active TOC item on scroll
+        if (toc) {
+            const docs = el.querySelector('.about-docs');
+            const items = el.querySelectorAll('.toc-item a');
+            const ids = Array.from(items).map(a => a.getAttribute('href').slice(1));
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(en => {
+                    if (en.isIntersecting) {
+                        const id = en.target.id;
+                        items.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+                    }
+                });
+            }, { root: docs, rootMargin: '-10% 0px -80% 0px' });
+            ids.forEach(id => { const t = el.querySelector('#' + CSS.escape(id)); if (t) observer.observe(t); });
+        }
+    }).catch(e => {
+        el.innerHTML = `<div class="docs-section"><p>Could not load README.md: ${escHtml(e.message)}</p><p>Make sure the file is served from the same directory.</p></div>`;
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     log('info', 'VSCode Modelator initialized');
 
-    // Init docs panel
-    initDocsPanel();
 
-    // Init about panel
+    // Set install path based on OS
+    const os = detectOS();
+    const paths = { windows: '%APPDATA%\\Code\\User\\', macos: '~/Library/Application Support/Code/User/', linux: '~/.config/Code/User/' };
+    const installEl = $('installPath');
+    if (installEl) installEl.textContent = paths[os] || paths.windows;
+
+    // Init about panel (loads README.md)
     initAboutPanel();
+
+    // Restore howto collapsed state
+    try {
+        const howtoEl = document.querySelector('.howto-hint');
+        if (howtoEl && localStorage.getItem('9router_howto_collapsed') === '1') howtoEl.classList.add('collapsed');
+    } catch {}
 
     // Load endpoints
     loadEndpoints();
@@ -1513,44 +1660,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Enter key triggers fetch
     document.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey && !$('fetchBtn').disabled
-            && !$('fetchPanel').classList.contains('hidden')) runFetchAll();
+        if (e.key === 'Enter' && !e.shiftKey && !$('fetchBtn').disabled) runFetchAll();
     });
-    // Upload zone drag-and-drop
-    const zone = $('uploadZone');
-    if (zone) {
-        ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('dragover'); }));
-        ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('dragover'); }));
-        zone.addEventListener('drop', e => {
-            const file = e.dataTransfer.files[0];
-            if (file && file.name.endsWith('.json')) {
-                const dt = new DataTransfer(); dt.items.add(file);
-                $('fileUpload').files = dt.files;
-                handleFileUpload({ target: { files: [file] } });
-            }
-        });
-    }
 
     // Restore cache
     loadCache();
 
     // Init scripts panel
     initScriptPanel();
-
-    // Find bar keyboard handlers
-    const findInput = $('findInput');
-    const replaceInput = $('replaceInput');
-    if (findInput) {
-        findInput.addEventListener('input', () => doFind());
-        findInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? findPrev() : findNext(); }
-            if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
-        });
-    }
-    if (replaceInput) {
-        replaceInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); replaceOne(); }
-            if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
-        });
-    }
 });
