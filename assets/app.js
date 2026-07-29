@@ -468,6 +468,10 @@ function isLocalhost(url) {
     } catch { return false; }
 }
 
+function likelyCorsBlocked(errMsg) {
+    return /Failed to fetch|NetworkError|Network request failed|CORS|Access-Control-Allow-Origin|Reason: CORS/i.test(errMsg);
+}
+
 // --- Endpoint list management ---
 
 function getEndpointData() {
@@ -1195,7 +1199,18 @@ async function fetchSingleEndpoint(id) {
 
     } catch (e) {
         let msg = e.message || String(e);
-        if (msg.includes('Failed to fetch')) msg += ' ï¿½ Server may be offline or CORS blocked';
+        if (likelyCorsBlocked(msg)) {
+            const isLocal = isLocalhost(url);
+            if (isLocal && location.protocol === 'http:') {
+                msg += ' — CORS blocked (http:// origin to localhost). Open via file:// instead.';
+            } else if (isLocal && location.protocol === 'https:') {
+                msg += ' — Mixed content blocked. Open via file:// or use the Scripts tab.';
+            } else if (isLocal && location.protocol === 'file:') {
+                msg += ' — Server may be offline or not sending CORS headers on OPTIONS.';
+            } else {
+                msg += ' — Server may be offline or missing CORS headers.';
+            }
+        }
         setEndpointStatus(id, 'err', msg);
         log('error', t('log.fetch_error', {id: id, msg: msg}));
         return null;
@@ -1239,13 +1254,27 @@ async function runFetchAll() {
     try {
         log('action', `Fetching ${rows.length} endpoint(s)...`);
 
-        // Check mixed content for any URL sources
+        // Check CORS / mixed-content for any URL sources before fetching
         let hasMixed = false;
+        let hasCors = false;
         rows.forEach(row => {
             const src = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
-            if (src === 'url' && isMixedContent(row.querySelector('.ep-url')?.value?.trim())) hasMixed = true;
+            if (src !== 'url') return;
+            const url = row.querySelector('.ep-url')?.value?.trim();
+            if (isMixedContent(url)) hasMixed = true;
+            // http:// origin → localhost:PORT is cross-origin CORS (port mismatch)
+            // Warn user to use file:// or scripts
+            if (location.protocol === 'http:' && isLocalhost(url)) hasCors = true;
         });
-        $('corsHint').classList.toggle('hidden', !hasMixed);
+        if (hasMixed) {
+            $('corsHint').classList.remove('hidden');
+            $('corsHint').innerHTML = t('home.cors_hint');
+        } else if (hasCors) {
+            $('corsHint').classList.remove('hidden');
+            $('corsHint').innerHTML = '<strong>🔒 CORS blocked?</strong><br>Page via <code>http://</code> cannot cross-origin fetch even to localhost.<br><br><strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> scripts from the Scripts tab';
+        } else {
+            $('corsHint').classList.add('hidden');
+        }
 
         const allProviders = [];
         let totalModels = 0;
