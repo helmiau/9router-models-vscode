@@ -171,7 +171,7 @@ body {
    ============================ */
 .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    height: 48px; padding: 0 var(--spacing-5);
+    height: 54px; padding: 0 var(--spacing-5);
     background: var(--color-bg-inverted);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0; z-index: 30;
@@ -185,11 +185,11 @@ body {
 /* Topbar right controls */
 .topbar-right { display: flex; align-items: center; gap: var(--spacing-2); flex-shrink: 0; }
 .topbar-btn {
-    width: 32px; height: 32px; border-radius: var(--radius-full);
+    width: 34px; height: 34px; border-radius: var(--radius-full);
     border: 1px solid var(--color-border); background: var(--color-bg-surface);
     color: var(--color-text-secondary); cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    padding: 0; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+    padding: 0; margin: 0; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .topbar-btn:hover { background: var(--color-accent-muted); color: var(--color-text-primary); }
 .topbar-btn .material-symbols-outlined { font-size: 1.2rem; }
@@ -1501,13 +1501,15 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     }
     .sidebar.expanded .sidebar-label { opacity: 1 !important; width: auto !important; }
     .sidebar.expanded .sidebar-item { justify-content: flex-start !important; padding-left: var(--spacing-3) !important; gap: var(--spacing-3) !important; }
+    .sidebar-footer { opacity: 0; } /* hidden on collapsed icon sidebar */
+    .sidebar.expanded .sidebar-footer { opacity: 1; }
     .container { max-width: 100%; padding: 0 var(--spacing-3); }
 }
 
 /* --- Responsive: mobile (< 480px) --- */
 @media (max-width: 480px) {
     /* --- Topbar: compact --- */
-    .topbar { height: 40px; padding: 0 var(--spacing-3); }
+    .topbar { height: 46px; padding: 0 var(--spacing-3); }
     .topbar-icon { font-size: 1.1rem; }
     .topbar-title { font-size: 0.78rem !important; }
     .topbar-subtitle { display: none; }
@@ -1562,6 +1564,8 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
         gap: 0 !important;
     }
     .sidebar-bottom .sidebar-item { flex: 0 0 52px; min-width: 52px; }
+    /* Footer text hidden on mobile — no room in 52px tab bar */
+    .sidebar-footer { display: none !important; }
 
     /* --- Content: safe-area bottom for tab bar --- */
     .app-wrapper { padding-bottom: 52px; }
