@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="assets/style.css" />
+    <script src="lang/i18n.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.min.js"></script>
 </head>
 <body>
@@ -17,35 +18,47 @@
     <header class="topbar" id="topbar">
         <div class="topbar-left">
             <span class="material-symbols-outlined topbar-icon">mobile_code</span>
-            <span class="topbar-title">VSCode Modelator</span>
-            <span class="topbar-divider"></span>
-            <span class="topbar-subtitle">Custom AI Provider Generator</span>
+            <div class="topbar-title-group">
+                <span class="topbar-title">VSCode Modelator</span>
+                <span class="topbar-subtitle">VS Code Custom AI Provider Generator</span>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <button class="topbar-btn" id="themeToggleTopBtn" onclick="toggleTheme()" title="Toggle theme">
+                <span class="material-symbols-outlined icon-dark">dark_mode</span>
+                <span class="material-symbols-outlined icon-light">light_mode</span>
+            </button>
+            <button class="topbar-btn" onclick="openLangModal()" title="Language">
+                <span class="material-symbols-outlined">translate</span>
+            </button>
         </div>
     </header>
     <div class="app-wrapper" id="appWrapper">
     <!-- SIDEBAR NAV (Astryx SideNav pattern) -->
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar"><span class="material-symbols-outlined" id="sidebarToggleIcon">menu_open</span><span class="sidebar-label sidebar-collapse-label">Collapse</span></button>
+            <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Toggle sidebar"><span class="material-symbols-outlined" id="sidebarToggleIcon">menu_open</span><span class="sidebar-label sidebar-collapse-label" data-i18n="sidebar.collapse">Collapse</span></button>
         </div>
         <div class="sidebar-nav">
             <!-- Section: Navigation -->
             <div class="sidebar-section">
-                <span class="sidebar-section-heading">Navigation</span>
-                <button class="sidebar-item active" data-panel="form" onclick="switchPanel('form')" title="Home"><span class="material-symbols-outlined sidebar-icon-outline">home</span><span class="material-symbols-outlined sidebar-icon-filled">home</span><span class="sidebar-label">Home</span></button>
-                <button class="sidebar-item" data-panel="editor" onclick="switchPanel('editor')" title="Viewer &amp; Editor"><span class="material-symbols-outlined sidebar-icon-outline">data_object</span><span class="material-symbols-outlined sidebar-icon-filled">data_object</span><span class="sidebar-label">Editor</span></button>
-                <button class="sidebar-item" data-panel="scripts" onclick="switchPanel('scripts')" title="Scripts"><span class="material-symbols-outlined sidebar-icon-outline">code_blocks</span><span class="material-symbols-outlined sidebar-icon-filled">code_blocks</span><span class="sidebar-label">Scripts</span></button>
+                <span class="sidebar-section-heading" data-i18n="sidebar.navigation">Navigation</span>
+                <button class="sidebar-item active" data-panel="form" onclick="switchPanel('form')" title="Home"><span class="material-symbols-outlined sidebar-icon-outline">home</span><span class="material-symbols-outlined sidebar-icon-filled">home</span><span class="sidebar-label" data-i18n="sidebar.home">Home</span></button>
+                <button class="sidebar-item" data-panel="editor" onclick="switchPanel('editor')" title="Viewer &amp; Editor"><span class="material-symbols-outlined sidebar-icon-outline">data_object</span><span class="material-symbols-outlined sidebar-icon-filled">data_object</span><span class="sidebar-label" data-i18n="sidebar.editor">Editor</span></button>
+                <button class="sidebar-item" data-panel="scripts" onclick="switchPanel('scripts')" title="Scripts"><span class="material-symbols-outlined sidebar-icon-outline">code_blocks</span><span class="material-symbols-outlined sidebar-icon-filled">code_blocks</span><span class="sidebar-label" data-i18n="sidebar.scripts">Scripts</span></button>
             </div>
             <!-- Section: Utilities -->
             <div class="sidebar-section">
-                <span class="sidebar-section-heading">Utilities</span>
-                <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label">Log</span></button>
+                <span class="sidebar-section-heading" data-i18n="sidebar.utilities">Utilities</span>
+                <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label" data-i18n="sidebar.log">Log</span></button>
 
-                <button class="sidebar-item" data-panel="about" onclick="switchPanel('about')" title="About"><span class="material-symbols-outlined sidebar-icon-outline">info</span><span class="material-symbols-outlined sidebar-icon-filled">info</span><span class="sidebar-label">About</span></button>
+                <button class="sidebar-item" data-panel="about" onclick="switchPanel('about')" title="About"><span class="material-symbols-outlined sidebar-icon-outline">info</span><span class="material-symbols-outlined sidebar-icon-filled">info</span><span class="sidebar-label" data-i18n="sidebar.about">About</span></button>
             </div>
         </div>
         <div class="sidebar-bottom">
-            <button class="sidebar-item" id="sidebarThemeBtn" onclick="toggleTheme()" title="Toggle theme"><span class="material-symbols-outlined sidebar-icon-outline icon-dark">dark_mode</span><span class="material-symbols-outlined sidebar-icon-outline icon-light">light_mode</span><span class="sidebar-label">Theme</span></button>
+            <div class="sidebar-footer">
+                Made by <a href="https://helmiau.com" target="_blank" rel="noopener noreferrer">Helmi Amirudin</a> &copy; 2026
+            </div>
         </div>
     </nav>
     <!-- CONTENT AREA -->
@@ -58,11 +71,11 @@
                 <p class="subtitle">Generate <code>chatLanguageModels.json</code> for VS Code from any OpenAI-compatible proxy.</p>
                 <div class="hint-box howto-hint">
                     <div class="curl-header howto-toggle" onclick="toggleHowto()">
-                        <strong><span class="material-symbols-outlined howto-chevron">expand_more</span><span class="material-symbols-outlined install-hint-icon">help</span> How to get JSON:</strong>
+                        <strong><span class="material-symbols-outlined howto-chevron">expand_more</span><span class="material-symbols-outlined install-hint-icon">help</span> How to get JSON (models_raw):</strong>
                     </div>
                     <div class="howto-body">
                         <div id="curlCommandList" class="curl-command-list"></div>
-                        <div class="curl-hint-text">Or download the fetch script from the <strong>Scripts</strong> tab.</div>
+                        <div class="curl-hint-text">The curl output is raw JSON — save as <code>models_raw.json</code>. Or download the fetch script from the <strong>Scripts</strong> tab.</div>
                     </div>
                 </div>
 
@@ -91,7 +104,7 @@
                         <li>Click <strong>Download</strong> in the Editor panel to save <code>chatLanguageModels.json</code>.</li>
                         <li>Copy the file to your VS Code user directory:<br>
                             <div class="curl-box"><code id="installPath">%APPDATA%\Code\User\</code>
-                            <button type="button" class="copy-curl-btn" onclick="copyInstallPath()" title="Copy path"><span class="material-symbols-outlined">content_copy</span></button></div>
+                            <button type="button" class="copy-curl-btn" onclick="copyInstallPath()" title="Copy path"><span class="material-symbols-outlined">content_copy</span> Copy</button></div>
                         </li>
                         <li>Restart VS Code.</li>
                         <li>Press <span class="docs-kbd">Ctrl+Shift+P</span> (or <span class="docs-kbd">Cmd+Shift+P</span> on Mac) and type <strong>Chat: Manage Language Models</strong>, hit Enter.</li>
@@ -185,6 +198,22 @@
     </div>
     </div>
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Language Modal · Hallmark component: modern-minimal · developer-tool -->
+    <div class="modal-overlay hidden" id="langModal" onclick="if(event.target===this)closeLangModal()" role="dialog" aria-modal="true" aria-label="Select language">
+        <div class="modal-container">
+            <div class="modal-header">
+                <span class="modal-header-title"><span class="material-symbols-outlined">translate</span> <span id="langModalTitle" data-i18n="sidebar.lang">Language</span></span>
+                <button class="modal-close-btn" onclick="closeLangModal()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-search-wrap">
+                <span class="material-symbols-outlined modal-search-icon">search</span>
+                <input type="text" class="modal-search" id="langSearch" placeholder="Search language…" oninput="filterLanguages()" aria-label="Search languages" title="Search languages" autocomplete="off">
+            </div>
+            <div class="modal-list" id="langList" role="listbox" aria-label="Available languages" data-empty="No languages match your search."></div>
+        </div>
+    </div>
+
     <script src="assets/app.js"></script>
 </body>
 </html>

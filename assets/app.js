@@ -82,7 +82,7 @@ function animateIcon(el, animClass) {
 function clearLog() {
     logEntries = [];
     const container = $('logEntries');
-    container.innerHTML = '<div class="log-empty" id="logEmpty"><span class="material-symbols-outlined log-empty-icon">receipt_long</span><span>No activity yet</span></div>';
+    container.innerHTML = '<div class="log-empty" id="logEmpty"><span class="material-symbols-outlined log-empty-icon">receipt_long</span><span>' + t('log.no_activity') + '</span></div>';
     $('logCount').textContent = '0';
 }
 
@@ -193,8 +193,8 @@ function formatAce() {
         aceEditor.setValue(formatted, -1);
         lastResult = parsed;
         saveCache(formatted);
-        log('success', 'JSON formatted');
-    } catch (e) { log('error', 'Format failed: ' + e.message); }
+        log('success', t('log.json_formatted'));
+    } catch (e) { log('error', t('log.format_failed', {msg: e.message})); }
 }
 
 // --- Find & Replace (uses Ace.js built-in dialog) ---
@@ -350,10 +350,81 @@ function toggleTheme() {
     body.classList.toggle('light');
     localStorage.setItem('9router_theme', body.classList.contains('light') ? 'light' : 'dark');
     updateAceTheme();
-    const btn = $('sidebarThemeBtn');
+    const btn = $('themeToggleTopBtn');
     const visibleIcon = body.classList.contains('light') ? btn.querySelector('.icon-light') : btn.querySelector('.icon-dark');
     if (visibleIcon) animateIcon(visibleIcon, 'icon-fadeswap');
-    log('action', `Theme: ${body.classList.contains('light') ? 'light' : 'dark'}`);
+    log('action', t('log.theme_changed', { mode: body.classList.contains('light') ? 'light' : 'dark' }));
+}
+
+/* i18n: update all data-i18n elements, re-render dynamic panels */
+window._onLangChange = function () {
+    // Update data-i18n static elements
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+    // Re-populate lang modal list
+    populateLangModalList();
+    // Re-init dynamic panels
+    initScriptPanel();
+    initAboutPanel();
+    updateCurlCommand();
+    showCacheBar();
+    // Recreate endpoints to pick up new language
+    const list = $('endpointList');
+    if (list) { list.innerHTML = ''; endpointIdCounter = 0; }
+    loadEndpoints();
+};
+
+function switchLang(code) {
+    window.setLang(code);
+}
+
+const LANGUAGES = [
+    { code: 'en_US', name: 'English (US)', native: 'English (US)' },
+    { code: 'id_ID', name: 'Indonesian', native: 'Bahasa Indonesia' },
+];
+
+function openLangModal() {
+    const modal = $('langModal');
+    modal.classList.remove('hidden');
+    populateLangModalList();
+    const search = $('langSearch');
+    search.value = '';
+    search.focus();
+    filterLanguages();
+    // Escape to close
+    setTimeout(() => document.addEventListener('keydown', _onLangModalKey), 0);
+}
+
+function closeLangModal() {
+    $('langModal').classList.add('hidden');
+    document.removeEventListener('keydown', _onLangModalKey);
+}
+function _onLangModalKey(e) {
+    if (e.key === 'Escape') closeLangModal();
+}
+
+function populateLangModalList() {
+    const list = $('langList');
+    const current = window._langCode || 'en_US';
+    list.innerHTML = LANGUAGES.map(l =>
+        `<div class="modal-lang-item${l.code === current ? ' active' : ''}" data-code="${l.code}" onclick="selectLangFromModal('${l.code}')" role="option" aria-selected="${l.code === current}" tabindex="0"><span class="lang-name">${escHtml(l.native)}</span><span class="lang-code">${escHtml(l.code)}</span></div>`
+    ).join('');
+}
+
+function filterLanguages() {
+    const q = $('langSearch').value.toLowerCase();
+    let visible = 0;
+    document.querySelectorAll('.modal-lang-item').forEach(el => {
+        const match = el.textContent.toLowerCase().includes(q);
+        el.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    $('langList').dataset.empty = visible ? '' : (q ? 'No languages match &quot;' + escHtml(q) + '&quot;.' : '');
+}
+
+function selectLangFromModal(code) {
+    closeLangModal();
+    if (code !== window._langCode) switchLang(code);
 }
 
 (function() {
@@ -432,86 +503,86 @@ function addEndpoint(name, url, key, secret, apiType, source) {
     row.dataset.id = id;
     row.innerHTML = `
         <div class="endpoint-row-header" onclick="toggleEndpointRow(${id})" style="cursor:pointer">
-            <span class="endpoint-row-num"><span class="material-symbols-outlined ep-chevron">expand_more</span><span class="material-symbols-outlined">dns</span> Endpoint #${id}</span>
+            <span class="endpoint-row-num"><span class="material-symbols-outlined ep-chevron">expand_more</span><span class="material-symbols-outlined">dns</span> ${t('endpoint.header_num', {num: id})}</span>
             <div class="endpoint-row-actions">
-                <button type="button" class="panel-btn" onclick="event.stopPropagation();removeEndpoint(${id})" title="Remove"><span class="material-symbols-outlined">close</span></button>
+                <button type="button" class="panel-btn" onclick="event.stopPropagation();removeEndpoint(${id})" title="${t('endpoint.remove')}"><span class="material-symbols-outlined">close</span></button>
             </div>
         </div>
         <div class="ep-body">
             <div class="ep-source-container">
             <div class="ep-source-combo" data-source="${src}">
-                <label><span class="material-symbols-outlined label-icon">source</span> Source</label>
+                <label><span class="material-symbols-outlined label-icon">source</span> ${t("endpoint.source")}</label>
                 <div class="ep-source-combo-row">
                     <span class="material-symbols-outlined ep-src-sel-icon">${src === 'url' ? 'link' : src === 'paste' ? 'terminal' : 'upload_file'}</span>
-                    <input type="text" class="ep-source-combo-text" value="${src === 'url' ? 'URL' : src === 'paste' ? 'Paste JSON' : 'Upload'}" placeholder="Select source" readonly autocomplete="off" spellcheck="false">
+                    <input type="text" class="ep-source-combo-text" value="${src === 'url' ? t('endpoint.source_url') : src === 'paste' ? t('endpoint.source_paste') : t('endpoint.source_upload')}" placeholder="${t('endpoint.source_placeholder')}" readonly autocomplete="off" spellcheck="false">
                     <button type="button" class="ep-source-combo-toggle" tabindex="-1"><span class="material-symbols-outlined">expand_more</span></button>
                 </div>
                 <div class="ep-source-combo-dropdown"></div>
             </div>
         <div class="ep-source ep-source-url${src !== 'url' ? ' hidden' : ''}" data-source="url">
-            <label><span class="material-symbols-outlined label-icon">link</span> Endpoint URL</label>
+            <label><span class="material-symbols-outlined label-icon">link</span> ${t("endpoint.url_label")}</label>
             <div class="input-row">
                 <input type="text" class="ep-url" value="${escHtml(url || '')}" placeholder="http://localhost:20128/v1/models">
-                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="${t('endpoint.show_hide')}"><span class="material-symbols-outlined">visibility</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="${t('endpoint.copy')}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-url').id)" title="${t('endpoint.paste')}"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
-            <label><span class="material-symbols-outlined label-icon">key</span> Endpoint API Key</label>
+            <label><span class="material-symbols-outlined label-icon">key</span> ${t("endpoint.key_label")}</label>
             <div class="input-row">
                 <input type="password" class="ep-key" value="${escHtml(key || '')}" placeholder="sk-xxxxx">
-                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility_off</span></button>
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="${t('endpoint.show_hide')}"><span class="material-symbols-outlined">visibility_off</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="${t('endpoint.copy')}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-key').id)" title="${t('endpoint.paste')}"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
-            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span> URL points to a <code>/v1/models</code> endpoint. API Key is sent as Bearer token in the <code>Authorization</code> header.</div>
+            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span><span class="ep-hint-text">${t('endpoint.url_hint')}</span></div>
         </div>
         <div class="ep-source ep-source-paste${src !== 'paste' ? ' hidden' : ''}" data-source="paste">
-            <label><span class="material-symbols-outlined label-icon">terminal</span> Paste raw JSON from /v1/models</label>
+            <label><span class="material-symbols-outlined label-icon">terminal</span> ${t("endpoint.paste_label")}</label>
             <textarea class="ep-paste-area" placeholder='{"object":"list","data":[{"id":"gpt-4o","capabilities":{...}}]}'></textarea>
-            <div class="ep-paste-hint">Response must have <code>object: "list"</code> with a <code>data</code> array.</div>
+            <div class="ep-paste-hint">${t("endpoint.paste_hint")}</div>
         </div>
         <div class="ep-source ep-source-upload${src !== 'upload' ? ' hidden' : ''}" data-source="upload">
-            <label><span class="material-symbols-outlined label-icon">upload_file</span> Upload models_raw.json</label>
+            <label><span class="material-symbols-outlined label-icon">upload_file</span> ${t("endpoint.upload_label")}</label>
             <div class="ep-upload-zone">
                 <input type="file" accept=".json" class="ep-file-input">
-                <label class="ep-upload-label"><span class="material-symbols-outlined upload-icon">upload</span> Click to select or drop .json here</label>
+                <label class="ep-upload-label"><span class="material-symbols-outlined upload-icon">upload</span> ${t("endpoint.upload_placeholder")}</label>
             </div>
-            <div class="ep-paste-hint">Upload a <code>models_raw.json</code> file fetched from a <code>/v1/models</code> endpoint.</div>
+            <div class="ep-paste-hint">${t("endpoint.upload_hint")}</div>
         </div>
         </div>
         <div class="ep-divider"></div>
         <div class="field">
-            <label><span class="material-symbols-outlined label-icon">badge</span> Endpoint Name</label>
+            <label><span class="material-symbols-outlined label-icon">badge</span> ${t("endpoint.name_label")}</label>
             <div class="input-row">
                 <input type="text" class="ep-name" value="${escHtml(name || '9Router')}" placeholder="Provider name">
-                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="${t('endpoint.show_hide')}"><span class="material-symbols-outlined">visibility</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="${t('endpoint.copy')}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-name').id)" title="${t('endpoint.paste')}"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
         </div>
         <div class="field">
-            <label><span class="material-symbols-outlined label-icon">lock</span> Secret API Key</label>
+            <label><span class="material-symbols-outlined label-icon">lock</span> ${t("endpoint.secret_label")}</label>
             <div class="input-row">
                 <input type="text" class="ep-secret" value="${escHtml(secret || '')}" placeholder="\${input:chat.lm.secret.-65d90303}">
-                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="Show/Hide"><span class="material-symbols-outlined">visibility</span></button>
-                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="Paste"><span class="material-symbols-outlined">content_paste</span></button>
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="${t('endpoint.show_hide')}"><span class="material-symbols-outlined">visibility</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="${t('endpoint.copy')}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-secret').id)" title="${t('endpoint.paste')}"><span class="material-symbols-outlined">content_paste</span></button>
             </div>
-            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span> Obtainable from VSCode <code>chatLanguageModels.json</code></div>
+            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span><span class="ep-hint-text">${t("endpoint.secret_hint")}</span></div>
         </div>
         <div class="field">
-            <label><span class="material-symbols-outlined label-icon">api</span> API Type</label>
+            <label><span class="material-symbols-outlined label-icon">api</span> ${t("endpoint.api_type_label")}</label>
             <div class="ep-apiType-wrap" data-value="${escHtml(at)}">
                 <div class="ep-apiType-input-row">
                     <span class="material-symbols-outlined ep-apiType-sel-icon">${at === 'chat-completions' ? 'chat' : at === 'responses' ? 'smart_toy' : 'forum'}</span>
-                    <input type="text" class="ep-apiType-text" value="${escHtml(at === 'chat-completions' ? 'Chat Completions' : at === 'responses' ? 'Responses' : 'Messages')}" placeholder="Select API type" readonly autocomplete="off" spellcheck="false">
+                    <input type="text" class="ep-apiType-text" value="${escHtml(at === 'chat-completions' ? t('endpoint.type_chat') : at === 'responses' ? t('endpoint.type_responses') : t('endpoint.type_messages'))}" placeholder="${t('endpoint.api_type_placeholder')}" readonly autocomplete="off" spellcheck="false">
                     <button type="button" class="ep-apiType-toggle" tabindex="-1"><span class="material-symbols-outlined">expand_more</span></button>
                 </div>
                 <div class="ep-apiType-dropdown"></div>
             </div>
         </div>
         <div class="ep-fetch-row">
-            <button type="button" class="ep-fetch-btn" id="epFetchBtn${id}" onclick="fetchEndpointAndShow(${id})" title="Fetch this endpoint only"><span class="material-symbols-outlined ep-fetch-icon">${src === 'url' ? 'bolt' : 'auto_fix_high'}</span> ${src === 'url' ? 'Fetch' : 'Generate'}</button>
+            <button type="button" class="ep-fetch-btn" id="epFetchBtn${id}" onclick="fetchEndpointAndShow(${id})" title="Fetch this endpoint only"><span class="material-symbols-outlined ep-fetch-icon">${src === 'url' ? 'bolt' : 'auto_fix_high'}</span> ${src === 'url' ? t('endpoint.fetch') : t('endpoint.generate')}</button>
         </div>
         </div>
         <div class="ep-status" id="epStatus${id}"></div>
@@ -536,7 +607,7 @@ function addEndpoint(name, url, key, secret, apiType, source) {
 
     $('endpointList').appendChild(row);
     saveEndpoints();
-    log('action', `Added endpoint #${id}`);
+    log('action', t('log.added_endpoint', {id: id}));
     animateIcon(row.querySelector('.endpoint-row-num .material-symbols-outlined'), 'icon-bounce');
     return row;
 }
@@ -552,7 +623,7 @@ function removeEndpoint(id) {
         row.addEventListener('transitionend', () => {
             row.remove();
             saveEndpoints();
-            log('action', `Removed endpoint #${id}`);
+            log('action', t('log.removed_endpoint', {id: id}));
             renumberEndpoints();
         }, { once: true });
     }
@@ -562,7 +633,7 @@ function renumberEndpoints() {
     const rows = $('endpointList').querySelectorAll('.endpoint-row');
     rows.forEach((row, i) => {
         const num = i + 1;
-        row.querySelector('.endpoint-row-num').innerHTML = `<span class="material-symbols-outlined">dns</span> Endpoint #${num}`;
+        row.querySelector('.endpoint-row-num').innerHTML = `<span class="material-symbols-outlined">dns</span> ${t('endpoint.header_num', {num: num})}`;
     });
 }
 
@@ -585,19 +656,19 @@ function updateFetchBtn(id) {
     if (!btn) return;
     const isUrl = src === 'url';
     btn.querySelector('.ep-fetch-icon').textContent = isUrl ? 'bolt' : 'auto_fix_high';
-    btn.childNodes[btn.childNodes.length - 1].textContent = isUrl ? ' Fetch' : ' Generate';
-    btn.title = isUrl ? 'Fetch this endpoint only' : 'Generate from pasted/uploaded JSON';
+    btn.childNodes[btn.childNodes.length - 1].textContent = ' ' + (isUrl ? t('endpoint.fetch') : t('endpoint.generate'));
+    btn.title = isUrl ? t('endpoint.fetch_title') : t('endpoint.generate_title');
 }
 
 function switchSource(id, sourceType) {
     const row = $('endpointList').querySelector(`[data-id="${id}"]`);
     if (!row) return;
     const combo = row.querySelector('.ep-source-combo');
-    if (combo) { combo.dataset.source = sourceType; const opt = SOURCE_OPTIONS.find(o => o.value === sourceType); const inp = combo.querySelector('.ep-source-combo-text'); if (inp && opt) inp.value = opt.label; const ic = combo.querySelector('.ep-src-sel-icon'); if (ic && opt) ic.textContent = opt.icon; }
+    if (combo) { combo.dataset.source = sourceType; const opt = SOURCE_OPTIONS.find(o => o.value === sourceType); const inp = combo.querySelector('.ep-source-combo-text'); if (inp && opt) inp.value = opt.label(); const ic = combo.querySelector('.ep-src-sel-icon'); if (ic && opt) ic.textContent = opt.icon; }
     row.querySelectorAll('.ep-source').forEach(p => p.classList.toggle('hidden', p.dataset.source !== sourceType));
     updateFetchBtn(id);
     saveEndpoints();
-    log('action', `Endpoint #${id}: source → ${sourceType}`);
+    log('action', t('log.source_changed', {id: id, type: sourceType}));
 }
 
 function initEndpointUploadZone(row, id) {
@@ -622,13 +693,13 @@ function handleEndpointFile(row, file) {
         const text = e.target.result;
         try {
             const parsed = JSON.parse(text);
-            if (parsed.object !== 'list') { setStatus('Invalid format: expected object="list".', 'err'); log('error', 'Invalid format in uploaded file'); return; }
+            if (parsed.object !== 'list') { setStatus(t('endpoint.invalid_format_list'), 'err'); log('error', t('log.invalid_format_uploaded')); return; }
             row.querySelector('.ep-paste-area').value = text;
             row.querySelector('.ep-upload-zone').classList.add('has-file');
-            row.querySelector('.ep-upload-label').innerHTML = `<span class="material-symbols-outlined upload-icon">check_circle</span> ${escHtml(file.name)} (${(parsed.data || []).length} models)`;
-            setStatus('File loaded: ' + file.name, 'info');
-            log('success', `File loaded: ${file.name} (${(parsed.data || []).length} models)`);
-        } catch { setStatus('Invalid JSON in file.', 'err'); log('error', 'Invalid JSON in uploaded file'); }
+            row.querySelector('.ep-upload-label').innerHTML = `<span class="material-symbols-outlined upload-icon">check_circle</span> ${escHtml(file.name)} (${t('endpoint.models_count', {count: (parsed.data || []).length})})`;
+            setStatus(t('endpoint.file_loaded', {name: file.name}), 'info');
+            log('success', t('log.file_loaded', {name: file.name, count: (parsed.data || []).length}));
+        } catch { setStatus(t('endpoint.invalid_json_file'), 'err'); log('error', t('log.invalid_json_uploaded')); }
     };
     reader.readAsText(file);
 }
@@ -636,9 +707,9 @@ function handleEndpointFile(row, file) {
 // --- Source Combobox ---
 
 const SOURCE_OPTIONS = [
-    { value: 'url', label: 'URL', icon: 'link', desc: 'Fetch from endpoint' },
-    { value: 'paste', label: 'Paste JSON', icon: 'terminal', desc: 'Paste raw /v1/models' },
-    { value: 'upload', label: 'Upload', icon: 'upload_file', desc: 'Upload JSON file' },
+    { value: 'url', label: function() { return t('endpoint.source_url'); }, icon: 'link', desc: function() { return 'Fetch from endpoint'; } },
+    { value: 'paste', label: function() { return t('endpoint.source_paste'); }, icon: 'terminal', desc: function() { return 'Paste raw /v1/models'; } },
+    { value: 'upload', label: function() { return t('endpoint.source_upload'); }, icon: 'upload_file', desc: function() { return 'Upload JSON file'; } },
 ];
 
 function initSourceCombobox(row, id) {
@@ -657,8 +728,8 @@ function initSourceCombobox(row, id) {
             const sel = wrap.dataset.source === opt.value;
             html += `<div class="ep-src-opt${sel ? ' selected' : ''}" data-val="${opt.value}" data-idx="${idx}">` +
                 `<span class="material-symbols-outlined ep-src-opt-icon">${opt.icon}</span>` +
-                `<span class="ep-src-opt-label">${opt.label}</span>` +
-                `<span class="ep-src-opt-val">${opt.desc}</span></div>`;
+                `<span class="ep-src-opt-label">${opt.label()}</span>` +
+                `<span class="ep-src-opt-val">${opt.desc()}</span></div>`;
         });
         dropdown.innerHTML = html;
         dropdown.querySelectorAll('.ep-src-opt').forEach(el => {
@@ -673,7 +744,7 @@ function initSourceCombobox(row, id) {
         const opt = SOURCE_OPTIONS.find(o => o.value === val);
         if (!opt) return;
         wrap.dataset.source = val;
-        input.value = opt.label;
+        input.value = opt.label();
         close();
         switchSource(id, val);
     }
@@ -688,7 +759,7 @@ function initSourceCombobox(row, id) {
     function close() {
         wrap.classList.remove('open');
         const cur = SOURCE_OPTIONS.find(o => o.value === wrap.dataset.source);
-        input.value = cur ? cur.label : '';
+        input.value = cur ? cur.label() : '';
         const iconEl = wrap.querySelector('.ep-src-sel-icon');
         if (iconEl && cur) iconEl.textContent = cur.icon;
     }
@@ -735,9 +806,9 @@ function initSourceCombobox(row, id) {
 // --- API Type Combobox ---
 
 const API_TYPE_OPTIONS = [
-    { value: 'chat-completions', label: 'Chat Completions', icon: 'chat', desc: '/v1/chat/completions' },
-    { value: 'responses', label: 'Responses', icon: 'smart_toy', desc: '/v1/responses' },
-    { value: 'messages', label: 'Messages', icon: 'forum', desc: '/v1/messages' },
+    { value: 'chat-completions', label: function() { return t('api.chat'); }, icon: 'chat', desc: '/v1/chat/completions' },
+    { value: 'responses', label: function() { return t('api.responses'); }, icon: 'smart_toy', desc: '/v1/responses' },
+    { value: 'messages', label: function() { return t('api.messages'); }, icon: 'forum', desc: '/v1/messages' },
 ];
 
 function initApiTypeCombobox(row) {
@@ -755,15 +826,15 @@ function initApiTypeCombobox(row) {
         let html = '';
         let idx = 0;
         API_TYPE_OPTIONS.forEach(opt => {
-            if (q && !opt.label.toLowerCase().includes(q) && !opt.value.toLowerCase().includes(q)) return;
+            if (q && !opt.label().toLowerCase().includes(q) && !opt.value.toLowerCase().includes(q)) return;
             const sel = wrap.dataset.value === opt.value;
             html += `<div class="ep-apiType-opt${sel ? ' selected' : ''}" data-val="${opt.value}" data-idx="${idx}">` +
                 `<span class="material-symbols-outlined ep-apiType-opt-icon">${opt.icon}</span>` +
-                `<span class="ep-apiType-opt-label">${opt.label}</span>` +
+                `<span class="ep-apiType-opt-label">${opt.label()}</span>` +
                 `<span class="ep-apiType-opt-val">${opt.desc}</span></div>`;
             idx++;
         });
-        if (!html) html = `<div class="ep-apiType-opt no-match">No match</div>`;
+        if (!html) html = `<div class="ep-apiType-opt no-match">${t('api.no_match')}</div>`;
         dropdown.innerHTML = html;
         // Bind clicks
         dropdown.querySelectorAll('.ep-apiType-opt:not(.no-match)').forEach(el => {
@@ -778,7 +849,7 @@ function initApiTypeCombobox(row) {
         const opt = API_TYPE_OPTIONS.find(o => o.value === val);
         if (!opt) return;
         wrap.dataset.value = val;
-        input.value = opt.label;
+        input.value = opt.label();
         close();
         saveEndpoints();
     }
@@ -797,7 +868,7 @@ function initApiTypeCombobox(row) {
         wrap.classList.remove('open');
         input.setAttribute('readonly', '');
         const cur = API_TYPE_OPTIONS.find(o => o.value === wrap.dataset.value);
-        input.value = cur ? cur.label : wrap.dataset.value;
+        input.value = cur ? cur.label() : wrap.dataset.value;
         const iconEl = wrap.querySelector('.ep-apiType-sel-icon');
         if (iconEl && cur) iconEl.textContent = cur.icon;
     }
@@ -945,8 +1016,8 @@ function showResult(data, total) {
     const json = JSON.stringify(data, null, '\t');
     const providerCount = Array.isArray(data) ? data.length : 1;
     $('installHint').classList.remove('hidden');
-    setStatus(`Done! Total: ${total} models from ${providerCount} endpoint(s)`, 'ok');
-    showToast('ok', `${total} models from ${providerCount} endpoint(s)`);
+    setStatus(t('status.done', { count: total, providers: providerCount }), 'ok');
+    showToast('ok', t('status.done', { count: total, providers: providerCount }));
     $('editorEmpty').classList.add('hidden');
     const ec = $('editorContent');
     ec.classList.remove('hidden');
@@ -954,7 +1025,7 @@ function showResult(data, total) {
     void ec.offsetWidth;
     ec.classList.add('crossfade-in');
     $('modelCount').classList.remove('hidden');
-    $('modelCount').textContent = total + ' models';
+    $('modelCount').textContent = total + ' ' + t('editor.models');
     renderTreeView(data);
     if (aceEditor) { aceEditor.setValue(json, -1); aceEditor.clearSelection(); }
     editMode = false;
@@ -963,7 +1034,7 @@ function showResult(data, total) {
     $('editModeLabel').textContent = 'Edit';
     $('editBtn').classList.remove('active');
     saveCache(json);
-    log('success', `Conversion complete: ${total} models from ${providerCount} endpoint(s)`);
+    log('success', t('log.conversion_done', { count: total, providers: providerCount }));
 }
 
 // --- Cache ---
@@ -994,10 +1065,10 @@ function loadCache() {
         }
         if (count) {
             $('modelCount').classList.remove('hidden');
-            $('modelCount').textContent = count + ' models';
+            $('modelCount').textContent = count + ' ' + t('editor.models');
         }
-        setStatus('Loaded from cache', 'info');
-        log('info', `Loaded ${count} models from cache`);
+        setStatus(t('status.cache_loaded'), 'info');
+        log('info', t('log.cache_loaded', { count: count }));
         setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 2000);
     } catch { localStorage.removeItem(CACHE_KEY); }
 }
@@ -1016,7 +1087,7 @@ function showCacheBar() {
         } else {
             count = (models[0] && models[0].models) ? models[0].models.length : '?';
         }
-        $('cacheInfo').textContent = `Cached: ${count} models (${kb} KB)`;
+        $('cacheInfo').textContent = t('editor.cached') + ': ' + count + ' ' + t('editor.models') + ' (' + kb + ' KB)';
         bar.classList.remove('hidden');
         bar.classList.remove('cache-slide-in');
         void bar.offsetWidth;
@@ -1032,8 +1103,8 @@ function clearCache() {
     $('cacheBar').classList.add('hidden');
     $('modelCount').classList.add('hidden');
     lastResult = null;
-    setStatus('Cache cleared', 'info');
-    log('action', 'Cache cleared');
+    setStatus(t('status.cache_cleared'), 'info');
+    log('action', t('log.cache_cleared'));
     setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) { s.classList.add('status-exit'); s.addEventListener('animationend', () => { s.className = 'status'; s.classList.remove('status-exit'); }, { once: true }); } }, 2000);
 }
 
@@ -1060,13 +1131,13 @@ async function fetchSingleEndpoint(id) {
     // --- Paste source ---
     if (source === 'paste') {
         const rawText = row.querySelector('.ep-paste-area')?.value?.trim();
-        if (!rawText) { setEndpointStatus(id, 'err', 'Paste JSON first'); log('error', `Endpoint #${id}: no JSON pasted`); return; }
+        if (!rawText) { setEndpointStatus(id, 'err', t('status.paste_required')); log('error', t('log.no_json_pasted', { id: id })); return; }
         let raw;
-        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', 'Invalid JSON'); log('error', `Endpoint #${id}: invalid JSON`); return; }
-        if (raw.object !== 'list') { setEndpointStatus(id, 'err', 'Expected object="list"'); log('error', `Endpoint #${id}: expected object="list"`); return; }
+        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', t('endpoint.invalid_json')); log('error', t('log.invalid_json', {id: id})); return; }
+        if (raw.object !== 'list') { setEndpointStatus(id, 'err', t('endpoint.expected_list')); log('error', t('log.expected_list', {id: id})); return; }
         const count = (raw.data || []).length;
         setEndpointStatus(id, 'ok', `${count} models from pasted JSON`);
-        log('success', `Endpoint #${id} (${name || 'paste'}): ${count} models`);
+        log('success', t('log.paste_models', {id: id, name: name || 'paste', count: count}));
         const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
         return provider;
     }
@@ -1074,24 +1145,24 @@ async function fetchSingleEndpoint(id) {
     // --- Upload source ---
     if (source === 'upload') {
         const rawText = row.querySelector('.ep-paste-area')?.value?.trim();
-        if (!rawText) { setEndpointStatus(id, 'err', 'Upload a file first'); log('error', `Endpoint #${id}: no file uploaded`); return; }
+        if (!rawText) { setEndpointStatus(id, 'err', t('status.upload_required')); log('error', t('log.no_file_uploaded', { id: id })); return; }
         let raw;
-        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', 'Invalid JSON in file'); log('error', `Endpoint #${id}: invalid JSON`); return; }
-        if (raw.object !== 'list') { setEndpointStatus(id, 'err', 'Expected object="list"'); log('error', `Endpoint #${id}: expected object="list"`); return; }
+        try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', t('endpoint.invalid_json_file')); log('error', t('log.invalid_json', {id: id})); return; }
+        if (raw.object !== 'list') { setEndpointStatus(id, 'err', t('endpoint.expected_list')); log('error', t('log.expected_list', {id: id})); return; }
         const count = (raw.data || []).length;
         setEndpointStatus(id, 'ok', `${count} models from uploaded file`);
-        log('success', `Endpoint #${id} (${name || 'upload'}): ${count} models`);
+        log('success', t('log.upload_models', {id: id, name: name || 'upload', count: count}));
         const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
         return provider;
     }
 
     // --- URL source (default) ---
     const url = row.querySelector('.ep-url')?.value?.trim() || '';
-    if (!url) { setEndpointStatus(id, 'err', 'Endpoint URL is required'); log('error', `Endpoint #${id}: URL required`); return; }
-    if (!key) { setEndpointStatus(id, 'err', 'Endpoint API Key is required'); log('error', `Endpoint #${id}: Endpoint API Key required`); return; }
+    if (!url) { setEndpointStatus(id, 'err', t('status.url_required')); log('error', t('log.url_required_err', { id: id })); return; }
+    if (!key) { setEndpointStatus(id, 'err', t('status.key_required')); log('error', t('log.key_required_err', { id: id })); return; }
 
     setEndpointStatus(id, 'loading', 'Fetching...');
-    log('action', `Fetching endpoint #${id}: ${url}`);
+    log('action', t('log.fetching', {id: id, url: url}));
 
     const endpoint = buildEndpoint(url);
     const modelsUrl = extractBaseUrl(url);
@@ -1113,11 +1184,11 @@ async function fetchSingleEndpoint(id) {
 
         let raw;
         try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON'); }
-        if (raw.object !== 'list') throw new Error('Expected object="list"');
+        if (raw.object !== 'list') throw new Error(t('endpoint.expected_list'));
 
         const modelCount = (raw.data || []).length;
         setEndpointStatus(id, 'ok', `${modelCount} models received`);
-        log('success', `Endpoint #${id} (${name || url}): ${modelCount} models`);
+        log('success', t('log.fetch_success', {id: id, name: name || url, count: modelCount}));
 
         const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
         return provider;
@@ -1126,7 +1197,7 @@ async function fetchSingleEndpoint(id) {
         let msg = e.message || String(e);
         if (msg.includes('Failed to fetch')) msg += ' ï¿½ Server may be offline or CORS blocked';
         setEndpointStatus(id, 'err', msg);
-        log('error', `Endpoint #${id}: ${msg}`);
+        log('error', t('log.fetch_error', {id: id, msg: msg}));
         return null;
     }
 }
@@ -1136,7 +1207,7 @@ async function fetchSingleEndpoint(id) {
 async function runFetchAll() {
     const btn = $('fetchBtn');
     const rows = $('endpointList').querySelectorAll('.endpoint-row');
-    if (rows.length === 0) { setStatus('Add at least one endpoint.', 'err'); log('error', 'No endpoints configured'); return; }
+    if (rows.length === 0) { setStatus(t('status.add_endpoint_needed'), 'err'); log('error', t('log.no_endpoints')); return; }
 
     // Validate all
     for (let i = 0; i < rows.length; i++) {
@@ -1145,15 +1216,15 @@ async function runFetchAll() {
             const url = rows[i].querySelector('.ep-url')?.value?.trim();
             const key = rows[i].querySelector('.ep-key')?.value?.trim();
             if (!url || !key) {
-                setStatus(`Endpoint #${i + 1}: URL and Endpoint API Key are required.`, 'err');
-                log('error', `Endpoint #${i + 1}: URL and Endpoint API Key required`);
+                setStatus(t('endpoint.url_key_required', {num: i + 1}), 'err');
+                log('error', t('endpoint.url_key_required_log', {num: i + 1}));
                 return;
             }
         } else {
             const rawText = rows[i].querySelector('.ep-paste-area')?.value?.trim();
             if (!rawText) {
-                setStatus(`Endpoint #${i + 1}: Paste JSON or upload a file.`, 'err');
-                log('error', `Endpoint #${i + 1}: no JSON provided`);
+                setStatus(t('status.validation_title', { num: i + 1, msg: 'Paste JSON or upload a file.' }), 'err');
+                log('error', t('log.no_json_provided', { i: i + 1 }));
                 return;
             }
         }
@@ -1161,7 +1232,7 @@ async function runFetchAll() {
     }
 
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>Fetching all...';
+    btn.innerHTML = '<span class="spinner"></span>' + t('status.fetching');
     $('editorEmpty').classList.remove('hidden');
     $('editorContent').classList.add('hidden');
 
@@ -1190,19 +1261,19 @@ async function runFetchAll() {
         }
 
         if (allProviders.length === 0) {
-            setStatus('All endpoints failed.', 'err');
-            showToast('err', 'All endpoints failed');
-            log('error', 'All endpoints failed');
+            setStatus(t('status.fetch_failed'), 'err');
+            showToast('err', t('status.fetch_failed'));
+            log('error', t('log.all_failed'));
         } else {
             showResult(allProviders, totalModels);
         }
     } catch (e) {
-        setStatus('Fetch error: ' + e.message, 'err');
+        setStatus(t('status.fetch_error', { msg: e.message }), 'err');
         showToast('err', e.message);
         log('error', 'Fetch failed: ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge';
+        btn.innerHTML = '<span class="material-symbols-outlined btn-icon">bolt</span> ' + t('home.fetch_all');
     }
 }
 
@@ -1228,12 +1299,12 @@ async function copyToClipboard() {
     if (!json) { log('warn', 'Nothing to copy'); return; }
     try {
         await navigator.clipboard.writeText(json);
-        setStatus('Copied to clipboard!', 'info');
+        setStatus(t('status.copied_clipboard'), 'info');
         log('success', 'Copied to clipboard');
         const copyBtn = document.querySelector('.scripts-dl-all-btn')?.previousElementSibling;
         if (copyBtn) animateIcon(copyBtn, 'icon-check');
         setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 2000);
-    } catch { setStatus('Copy failed.', 'err'); log('error', 'Copy failed'); showToast('err', 'Copy failed'); }
+    } catch { setStatus(t('status.copy_failed'), 'err'); log('error', t('log.copy_failed')); showToast('err', t('status.copy_failed')); }
 }
 
 // --- Download scripts ---
@@ -1273,7 +1344,7 @@ function initScriptPanel() {
         return `<div class="scripts-os-item${active}" data-os="${p.key}" onclick="toggleScriptOS('${p.key}')">
             <div class="scripts-mode-check"><span class="material-symbols-outlined">check</span></div>
             <div class="scripts-os-icon"><span class="material-symbols-outlined">${p.icon}</span></div>
-            <div class="scripts-os-name">${p.label}</div>
+            <div class="scripts-os-name">${t('scripts.' + p.key + '_label')}</div>
             <div class="scripts-os-ext">${p.ext}</div>
         </div>`;
     }).join('');
@@ -1286,8 +1357,8 @@ function initScriptPanel() {
             <div class="scripts-mode-check"><span class="material-symbols-outlined">check</span></div>
             <div class="scripts-mode-icon"><span class="material-symbols-outlined">${m.icon}</span></div>
             <div class="scripts-mode-info">
-                <div class="scripts-mode-name">${m.label}</div>
-                <div class="scripts-mode-desc">${m.desc}</div>
+                <div class="scripts-mode-name">${t('scripts.' + m.key + '_label')}</div>
+                <div class="scripts-mode-desc">${t('scripts.' + m.key + '_desc')}</div>
             </div>
             <div class="scripts-mode-file" data-file="${m.key}">${file}</div>
         </div>`;
@@ -1296,33 +1367,33 @@ function initScriptPanel() {
     container.innerHTML = `
         <div class="scripts-os-section">
             <div class="scripts-os-header">
-                <div class="scripts-os-label"><span class="material-symbols-outlined">settings_suggest</span> Operating System</div>
-                <div class="scripts-os-detected"><span class="material-symbols-outlined">check_circle</span> Auto-detected: <strong>${detected ? detected.label : 'â€”'}</strong></div>
+                <div class="scripts-os-label"><span class="material-symbols-outlined">settings_suggest</span> ${t('scripts.os')}</div>
+                <div class="scripts-os-detected"><span class="material-symbols-outlined">check_circle</span> ${t('scripts.auto_detected')}: <strong>${detected ? t('scripts.' + detected.key + '_label') : '—'}</strong></div>
             </div>
             <div class="scripts-os-items">${osItems}</div>
             <div class="scripts-footer">
                 <div class="scripts-select-all" onclick="toggleSelectAllOS()">
                     <span class="material-symbols-outlined" id="selectOsAllIcon">check_box</span>
-                    Select all
+                    ${t('scripts.select_all')}
                 </div>
                 <span class="scripts-os-count" id="osCount"></span>
             </div>
         </div>
         <div class="scripts-modes-section scripts-os-section">
             <div class="scripts-os-header">
-                <div class="scripts-os-label"><span class="material-symbols-outlined">list</span> Script Mode</div>
+                <div class="scripts-os-label"><span class="material-symbols-outlined">list</span> ${t('scripts.mode')}</div>
             </div>
             ${modeItems}
             <div class="scripts-footer">
                 <div class="scripts-select-all" onclick="toggleSelectAllModes()">
                     <span class="material-symbols-outlined" id="selectAllIcon">check_box</span>
-                    Select all
+                    ${t('scripts.select_all')}
                 </div>
             </div>
         </div>
         <button type="button" class="scripts-dl-all-btn" id="scriptDlAllBtn" onclick="downloadSelectedScripts()" disabled>
             <span class="material-symbols-outlined">download</span>
-            Download <span id="scriptDlCount">0</span>
+            ${t('scripts.download')} <span id="scriptDlCount">0</span>
         </button>`;
     updateScriptUI();
 }
@@ -1365,7 +1436,7 @@ function updateScriptUI() {
         osAllIcon.textContent = osCount === SCRIPT_PLATFORMS.length ? 'check_box' : osCount > 0 ? 'indeterminate_check_box' : 'check_box_outline_blank';
     }
     const osCnt = $('osCount');
-    if (osCnt) osCnt.textContent = osCount > 1 ? osCount + ' selected' : '';
+    if (osCnt) osCnt.textContent = osCount > 1 ? osCount + ' ' + t('scripts.selected') : '';
 
     // Mode items
     document.querySelectorAll('.scripts-mode-item').forEach(el => {
@@ -1438,7 +1509,7 @@ async function downloadScript(file) {
         URL.revokeObjectURL(a.href);
         log('success', `Downloaded ${file}`);
     } catch (e) {
-        setStatus('Download failed: ' + e.message, 'err');
+        setStatus(t('status.download_failed', {msg: e.message}), 'err');
         log('error', `Script download failed: ${e.message}`);
     }
 }
@@ -1477,7 +1548,7 @@ function updateCurlCommand() {
         const endpoint = buildEndpoint(url);
         const displayKey = key ? key.substring(0, 4) + '...' + key.substring(key.length - 4) : 'YOUR_TOKEN';
         const name = row.querySelector('.ep-name')?.value?.trim() || url;
-        html += `<div class="curl-cmd-item"><span class="curl-cmd-label">${escHtml(name)}</span><div class="curl-box"><code class="curl-cmd-code" data-cmd="${escHtml('curl -s -H "Authorization: Bearer ' + (key || 'YOUR_TOKEN') + '" ' + endpoint)}">curl -s -H "Authorization: Bearer ${escHtml(displayKey)}" ${escHtml(endpoint)}</code><button class="copy-curl-btn" onclick="copySingleCurl(this)" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span></button></div></div>`;
+        html += `<div class="curl-cmd-item"><span class="curl-cmd-label">${escHtml(name)}</span><div class="curl-box"><code class="curl-cmd-code" data-cmd="${escHtml('curl -s -H "Authorization: Bearer ' + (key || 'YOUR_TOKEN') + '" ' + endpoint)}">curl -s -H "Authorization: Bearer ${escHtml(displayKey)}" ${escHtml(endpoint)}</code><button class="copy-curl-btn" onclick="copySingleCurl(this)" title="Copy to clipboard"><span class="material-symbols-outlined">content_paste</span> ${t('endpoint.copy')}</button></div></div>`;
     });
     list.innerHTML = html;
 }
@@ -1487,9 +1558,9 @@ function copySingleCurl(btn) {
     if (!code) return;
     navigator.clipboard.writeText(code.dataset.cmd).then(() => {
         const orig = btn.innerHTML;
-        btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+        btn.innerHTML = '<span class="material-symbols-outlined">check</span> ' + t('log.copied');
         setTimeout(() => { btn.innerHTML = orig; }, 1500);
-        log('success', 'curl command copied');
+        log('success', t('log.curl_copied'));
     }).catch(() => {});
 }
 
@@ -1501,10 +1572,10 @@ function copyCurlCommand() {
         const btn = $('curlCommandList')?.closest('.hint-box')?.querySelector('.copy-curl-btn');
         if (btn) {
             const orig = btn.innerHTML;
-            btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+            btn.innerHTML = '<span class="material-symbols-outlined">check</span> ' + t('log.copied');
             setTimeout(() => { btn.innerHTML = orig; }, 1500);
         }
-        log('success', 'All curl commands copied');
+        log('success', t('log.curl_all_copied'));
     }).catch(() => {});
 }
 
@@ -1516,10 +1587,10 @@ function copyInstallPath() {
         const btn = el.closest('.hint-box')?.querySelector('.copy-curl-btn');
         if (btn) {
             const orig = btn.innerHTML;
-            btn.innerHTML = '<span class="material-symbols-outlined">check</span> Copied!';
+            btn.innerHTML = '<span class="material-symbols-outlined">check</span> ' + t('log.copied');
             setTimeout(() => { btn.innerHTML = orig; }, 1500);
         }
-        log('success', 'Install path copied to clipboard');
+        log('success', t('log.install_path_copied'));
     }).catch(() => {});
 }
 
@@ -1597,7 +1668,7 @@ function renderMarkdown(md) {
 function initAboutPanel() {
     const el = $('aboutContent');
     if (!el) return;
-    el.innerHTML = '<div class="docs-loading"><span class="material-symbols-outlined spinning">progress_activity</span> Loading documentation...</div>';
+    el.innerHTML = '<div class="docs-loading"><span class="material-symbols-outlined spinning">progress_activity</span> ' + t('about.loading') + '</div>';
     fetch('README.md').then(r => {
         if (!r.ok) throw new Error(r.status);
         return r.text();
@@ -1629,19 +1700,21 @@ function initAboutPanel() {
             ids.forEach(id => { const t = el.querySelector('#' + CSS.escape(id)); if (t) observer.observe(t); });
         }
     }).catch(e => {
-        el.innerHTML = `<div class="docs-section"><p>Could not load README.md: ${escHtml(e.message)}</p><p>Make sure the file is served from the same directory.</p></div>`;
+        el.innerHTML = `<div class="docs-section"><p>${t('about.error_no_file')}: ${escHtml(e.message)}</p><p>${t('about.error_hint')}</p></div>`;
     });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    log('info', 'VSCode Modelator initialized');
-
+    log('info', t('log.init'));
 
     // Set install path based on OS
     const os = detectOS();
     const paths = { windows: '%APPDATA%\\Code\\User\\', macos: '~/Library/Application Support/Code/User/', linux: '~/.config/Code/User/' };
     const installEl = $('installPath');
     if (installEl) installEl.textContent = paths[os] || paths.windows;
+
+    // Init i18n: apply stored/saved lang
+    if (window._onLangChange) _onLangChange();
 
     // Init about panel (loads README.md)
     initAboutPanel();
@@ -1651,9 +1724,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const howtoEl = document.querySelector('.howto-hint');
         if (howtoEl && localStorage.getItem('9router_howto_collapsed') === '1') howtoEl.classList.add('collapsed');
     } catch {}
-
-    // Load endpoints
-    loadEndpoints();
 
     // Init Ace editor
     initAce();
