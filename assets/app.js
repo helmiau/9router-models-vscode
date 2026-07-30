@@ -454,18 +454,90 @@ function extractBaseUrl(apiUrl) {
     return base.endsWith('/v1') ? base : base + '/v1';
 }
 
-function isMixedContent(apiUrl) {
-    if (location.protocol === 'https:' && /^https?:\/\//.test(apiUrl)) {
-        try { return new URL(apiUrl).protocol === 'http:'; } catch {}
-    }
-    return false;
-}
-
 function isLocalhost(url) {
     try {
         const h = new URL(url).hostname;
         return ['localhost','127.0.0.1','0.0.0.0','[::1]'].includes(h);
     } catch { return false; }
+}
+
+// --- WebSocket Relay for Localhost ---
+let wsRelay = null;
+
+function initWebSocketRelay() {
+    if (wsRelay) return;
+    const wsUrl = 'ws://127.0.0.1:9876';
+    wsRelay = new WebSocket(wsUrl);
+    wsRelay.onopen = () => { log('info', 'WebSocket relay connected'); setStatus('WebSocket relay connected', 'info'); };
+    wsRelay.onclose = () => { log('warn', 'WebSocket relay disconnected'); setStatus('WebSocket relay disconnected', 'warn'); wsRelay = null; };
+    wsRelay.onerror = (e) => { log('error', 'WebSocket relay error'); setStatus('WebSocket relay error', 'err'); };
+}
+
+async function fetchViaWebSocket(url, token) {
+    if (!wsRelay || wsRelay.readyState !== WebSocket.OPEN) {
+        initWebSocketRelay();
+        await new Promise(r => setTimeout(r, 500));
+        if (!wsRelay || wsRelay.readyState !== WebSocket.OPEN) return { error: 'WebSocket relay not available' };
+    }
+    return new Promise((resolve) => {
+        const request = { action: 'fetch', url: url, token: token };
+        wsRelay.send(JSON.stringify(request));
+        const handler = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                wsRelay.removeEventListener('message', handler);
+                resolve(data);
+            } catch (err) { resolve({ error: 'Invalid WebSocket response' }); }
+        };
+        wsRelay.addEventListener('message', handler);
+    });
+}
+
+function downloadLocalhostScript(url, token) {
+    const scriptContent = `#!/usr/bin/env python3
+import sys, json, os, urllib.request, urllib.error
+OUTPUT_DIR = "sources"
+OUTPUT_FILE = "localhost_models.json"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+def fetch_models(url, token):
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+        if data.get("object") != "list": return None, f"Expected object=list, got {data.get('object')}"
+        return data, None
+    except Exception as e: return None, str(e)
+def main():
+    url = sys.argv[1] if len(sys.argv) > 1 else "${url}"
+    token = sys.argv[2] if len(sys.argv) > 2 else "${token}"
+    print(f"Fetching from {url}...")
+    data, err = fetch_models(url, token)
+    if err: print(f"ERROR: {err}"); return 1
+    path = os.path.join(OUTPUT_DIR, OUTPUT_FILE)
+    with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent="\t", ensure_ascii=False)
+    print(f"Saved to {path}. Upload this file in the web app."); return 0
+if __name__ == "__main__": sys.exit(main())`;
+    const blob = new Blob([scriptContent], { type: 'text/x-python' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'fetch_localhost.py';
+    a.click();
+    log('success', 'Downloaded fetch_localhost.py');
+}
+
+function showLocalhostSolution(url) {
+    const hint = $('corsHint');
+    if (!hint) return;
+    hint.classList.remove('hidden');
+    const tKey = isMixedContent(url) ? 'home.localhost_detected' : 'home.localhost_detected';
+    hint.innerHTML = t(tKey, {url: url});
+}
+
+function isMixedContent(apiUrl) {
+    if (location.protocol === 'https:' && /^https?:\/\//.test(apiUrl)) {
+        try { return new URL(apiUrl).protocol === 'http:'; } catch {}
+    }
+    return false;
 }
 
 function likelyCorsBlocked(errMsg) {
@@ -1171,50 +1243,54 @@ async function fetchSingleEndpoint(id) {
     const endpoint = buildEndpoint(url);
     const modelsUrl = extractBaseUrl(url);
 
-    try {
-        const resp = await fetch(endpoint, {
-            headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
-        });
-
-        const ct = (resp.headers.get('content-type') || '').toLowerCase();
-        const body = await resp.text().catch(() => '');
-
-        if (ct.includes('text/html') || body.trimStart().startsWith('<!DOCTYPE') || body.trimStart().startsWith('<html')) {
-            const titleMatch = body.match(/<title[^>]*>([^<]+)<\/title>/i);
-            const errMsg = (titleMatch && titleMatch[1]) || 'Server returned HTML';
-            throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+    let raw;
+    // Check if this is a localhost URL and we're on GitHub Pages (HTTPS)
+    if (isLocalhost(url) && (location.protocol === 'https:' || location.hostname.includes('github.io'))) {
+        log('info', 'Localhost detected on HTTPS. Attempting WebSocket relay...');
+        const wsResult = await fetchViaWebSocket(endpoint, key);
+        if (wsResult && wsResult.success) {
+            raw = wsResult.data;
+        } else {
+            const errMsg = wsResult?.error || 'WebSocket relay failed';
+            log('warn', errMsg + '. Falling back to manual fetch.');
+            showLocalhostSolution(url);
         }
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-
-        let raw;
-        try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON'); }
-        if (raw.object !== 'list') throw new Error(t('endpoint.expected_list'));
-
-        const modelCount = (raw.data || []).length;
-        setEndpointStatus(id, 'ok', `${modelCount} models received`);
-        log('success', t('log.fetch_success', {id: id, name: name || url, count: modelCount}));
-
-        const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
-        return provider;
-
-    } catch (e) {
-        let msg = e.message || String(e);
-        if (likelyCorsBlocked(msg)) {
-            const isLocal = isLocalhost(url);
-            if (isLocal && location.protocol === 'http:') {
-                msg += ' — CORS blocked (http:// origin to localhost). Open via file:// instead.';
-            } else if (isLocal && location.protocol === 'https:') {
-                msg += ' — Mixed content blocked. Open via file:// or use the Scripts tab.';
-            } else if (isLocal && location.protocol === 'file:') {
-                msg += ' — Server may be offline or not sending CORS headers on OPTIONS.';
-            } else {
-                msg += ' — Server may be offline or missing CORS headers.';
-            }
-        }
-        setEndpointStatus(id, 'err', msg);
-        log('error', t('log.fetch_error', {id: id, msg: msg}));
-        return null;
     }
+
+    if (!raw) {
+        try {
+            const resp = await fetch(endpoint, {
+                headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
+            });
+
+            const ct = (resp.headers.get('content-type') || '').toLowerCase();
+            const body = await resp.text().catch(() => '');
+
+            if (ct.includes('text/html') || body.trimStart().startsWith('<!DOCTYPE') || body.trimStart().startsWith('<html')) {
+                const titleMatch = body.match(/<title[^>]*>([^<]+)<\/title>/i);
+                const errMsg = (titleMatch && titleMatch[1]) || 'Server returned HTML';
+                throw new Error(`HTTP ${resp.status}: ${errMsg}`);
+            }
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+
+            try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON'); }
+        } catch (e) {
+            let msg = e.message || String(e);
+            if (msg.includes('Failed to fetch')) msg += ' — Server may be offline or CORS blocked';
+            setEndpointStatus(id, 'err', msg);
+            log('error', t('log.fetch_error', {id: id, msg: msg}));
+            return null;
+        }
+    }
+
+    if (raw.object !== 'list') throw new Error(t('endpoint.expected_list'));
+
+    const modelCount = (raw.data || []).length;
+    setEndpointStatus(id, 'ok', `${modelCount} models received`);
+    log('success', t('log.fetch_success', {id: id, name: name || url, count: modelCount}));
+
+    const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
+    return provider;
 }
 
 // --- Fetch all endpoints ---
