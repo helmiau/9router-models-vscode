@@ -1595,6 +1595,16 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     .main-panel { padding: var(--spacing-4) var(--spacing-3) !important; }
     #fetchBtn { padding: var(--spacing-3); font-size: 0.82rem; }
 }
+#sidebarHoverZone {
+    display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+    #sidebarHoverZone {
+        display: block;
+        position: fixed; top: 0; left: 0; bottom: 0;
+        width: 12px; z-index: 999;
+    }
+}
 
 /* --- Icon micro-feedback animations --- */
 @keyframes iconBounce {

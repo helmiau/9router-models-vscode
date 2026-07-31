@@ -153,6 +153,7 @@ function refreshPage() {
 }
 
 function openResetModal() {
+    closeMobileNav();
     $('resetModal').classList.remove('hidden');
     setTimeout(() => document.addEventListener('keydown', _onResetModalKey), 0);
 }
@@ -187,6 +188,30 @@ function cleanAllCache() {
 function toggleSidebar() {
     toggleMobileNav();
 }
+
+/* Hover: open sidebar by hovering the left edge (desktop hover-capable only) */
+(() => {
+    if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const zone = $('sidebarHoverZone'), sb = $('sidebar');
+    if (!zone || !sb) return;
+    let inside = false, timer = null;
+    const open = () => {
+        inside = true;
+        clearTimeout(timer);
+        if (!sb.classList.contains('nav-open')) toggleMobileNav();
+    };
+    const armClose = () => {
+        inside = false;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            if (!inside && sb.classList.contains('nav-open')) toggleMobileNav();
+        }, 300);
+    };
+    zone.addEventListener('mouseenter', open);
+    sb.addEventListener('mouseenter', open);
+    zone.addEventListener('mouseleave', armClose);
+    sb.addEventListener('mouseleave', armClose);
+})();
 
 /* Intro: animate drawer open on load, then auto-hide */
 window.addEventListener('load', () => {
@@ -460,6 +485,7 @@ const LANGUAGES = [
 const FLAG_BASE = 'https://flagicons.lipis.dev/flags/4x3/';
 
 function openLangModal() {
+    closeMobileNav();
     const modal = $('langModal');
     modal.classList.remove('hidden');
     populateLangModalList();
