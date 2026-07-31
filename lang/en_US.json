@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "Obtainable from VSCode chatLanguageModels.json",
  "endpoint.fetch_url_label": "Fetch URL (optional)",
  "endpoint.fetch_url_placeholder": "Leave empty to use Endpoint URL",
- "endpoint.fetch_url_hint": "Override fetch target. The Endpoint URL above is used in generated config; this URL is what the browser actually fetches. Useful for localhost proxies.",
+ "endpoint.fetch_url_hint": "Optional replacement URL for the generated output. If set, this URL replaces the Endpoint URL in the final chatLanguageModels.json (like Secret API Key replaces the API Key). The fetch always uses the Endpoint URL above.",
   "endpoint.url_key_required": "Endpoint #{num}: URL and API Key are required.",
   "endpoint.url_key_required_log": "Endpoint #{num}: URL and API Key required",
   "endpoint.fetch_title": "Fetch this endpoint only",

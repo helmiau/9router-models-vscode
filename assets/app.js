@@ -1258,7 +1258,8 @@ async function fetchSingleEndpoint(id) {
         const count = (raw.data || []).length;
         setEndpointStatus(id, 'ok', `${count} models from pasted JSON`);
         log('success', t('log.paste_models', {id: id, name: name || 'paste', count: count}));
-        const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
+        const modelsUrl = extractBaseUrl(fetchUrl || 'http://localhost:20128/v1');
+        const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
         return provider;
     }
 
@@ -1272,7 +1273,8 @@ async function fetchSingleEndpoint(id) {
         const count = (raw.data || []).length;
         setEndpointStatus(id, 'ok', `${count} models from uploaded file`);
         log('success', t('log.upload_models', {id: id, name: name || 'upload', count: count}));
-        const { provider } = convertModels(raw, 'http://localhost:20128/v1', name, secret || key, apiType);
+        const modelsUrl = extractBaseUrl(fetchUrl || 'http://localhost:20128/v1');
+        const { provider } = convertModels(raw, modelsUrl, name, secret || key, apiType);
         return provider;
     }
 
@@ -1284,8 +1286,8 @@ async function fetchSingleEndpoint(id) {
     setEndpointStatus(id, 'loading', 'Fetching...');
     log('action', t('log.fetching', {id: id, url: url}));
 
-    const endpoint = buildEndpoint(fetchUrl || url);
-    const modelsUrl = extractBaseUrl(url);
+    const endpoint = buildEndpoint(url);
+    const modelsUrl = extractBaseUrl(fetchUrl || url);
 
     let raw;
     // --- App mode: same-origin proxy (overrides everything below) ---

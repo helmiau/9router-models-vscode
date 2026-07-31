@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "Có thể lấy từ VSCode chatLanguageModels.json",
   "endpoint.fetch_url_label": "URL truy xuất (tùy chọn)",
   "endpoint.fetch_url_placeholder": "Để trống để sử dụng Endpoint URL",
-  "endpoint.fetch_url_hint": "Ghi đè mục tiêu truy xuất. Endpoint URL ở trên được dùng trong cấu hình đã tạo; URL này là nơi trình duyệt thực sự truy xuất. Hữu ích cho proxy localhost.",
+  "endpoint.fetch_url_hint": "URL thay thế tùy chọn cho đầu ra. Nếu được điền, URL này sẽ thay thế Endpoint URL trong chatLanguageModels.json cuối cùng (giống như Secret API Key thay thế API Key). Truy xuất luôn dùng Endpoint URL ở trên.",
   "endpoint.url_key_required": "Endpoint #{num}: Yêu cầu URL và Khóa API.",
   "endpoint.url_key_required_log": "Endpoint #{num}: Yêu cầu URL và Khóa API",
   "endpoint.fetch_title": "Chỉ truy xuất endpoint này",

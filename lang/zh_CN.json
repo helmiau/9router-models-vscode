@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "可从 VSCode chatLanguageModels.json 获取",
   "endpoint.fetch_url_label": "获取 URL（可选）",
   "endpoint.fetch_url_placeholder": "留空以使用端点 URL",
-  "endpoint.fetch_url_hint": "覆盖获取目标。上方的端点 URL 用于生成的配置；此 URL 是浏览器实际获取的地址。用于 localhost 代理。",
+  "endpoint.fetch_url_hint": "可选的替换 URL，用于生成 chatLanguageModels.json 时的输出。如果填写，此 URL 会替换生成的配置中的 Endpoint URL（如同 Secret API Key 替换 API Key）。抓取始终使用上方的 Endpoint URL。",
   "endpoint.url_key_required": "端点 #{num}：URL 和 API 密钥为必填项。",
   "endpoint.url_key_required_log": "端点 #{num}：需要 URL 和 API 密钥",
   "endpoint.fetch_title": "仅获取此端点",

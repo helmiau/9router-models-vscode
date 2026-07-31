@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "VSCode chatLanguageModels.json から取得可能",
   "endpoint.fetch_url_label": "取得 URL（オプション）",
   "endpoint.fetch_url_placeholder": "空の場合はエンドポイント URL を使用",
-  "endpoint.fetch_url_hint": "取得ターゲットを上書きします。上のエンドポイント URL は生成された設定で使用され、この URL はブラウザが実際に取得するアドレスです。localhost プロキシに便利です。",
+  "endpoint.fetch_url_hint": "生成される chatLanguageModels.json の出力URLを上書きするオプションです。設定すると、生成された設定の Endpoint URL がこの URL に置き換わります（Secret API Key が API Key を置き換えるのと同様）。取得は常に上の Endpoint URL を使用します。",
   "endpoint.url_key_required": "エンドポイント #{num}：URL と API キーが必要です。",
   "endpoint.url_key_required_log": "エンドポイント #{num}：URL と API キーが必要です",
   "endpoint.fetch_title": "このエンドポイントのみ取得",

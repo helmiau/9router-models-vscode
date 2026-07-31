@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "Diperoleh dari VSCode chatLanguageModels.json",
  "endpoint.fetch_url_label": "Fetch URL (opsional)",
  "endpoint.fetch_url_placeholder": "Kosongkan untuk menggunakan Endpoint URL",
- "endpoint.fetch_url_hint": "Timpa URL untuk fetch. Endpoint URL di atas tetap dipakai di konfigurasi; URL ini dipakai browser untuk fetch. Berguna untuk proxy localhost.",
+ "endpoint.fetch_url_hint": "URL pengganti opsional untuk output. Jika diisi, URL ini menggantikan Endpoint URL di chatLanguageModels.json final (seperti Secret API Key menggantikan API Key). Fetch tetap menggunakan Endpoint URL di atas.",
   "endpoint.url_key_required": "Endpoint #{num}: URL dan Kunci API wajib diisi.",
   "endpoint.url_key_required_log": "Endpoint #{num}: URL dan Kunci API wajib diisi",
   "endpoint.fetch_title": "Ambil endpoint ini saja",

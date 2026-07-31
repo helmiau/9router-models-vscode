@@ -165,7 +165,7 @@
   "endpoint.secret_hint": "Obtenable depuis VSCode chatLanguageModels.json",
   "endpoint.fetch_url_label": "URL de récupération (optionnel)",
   "endpoint.fetch_url_placeholder": "Laisser vide pour utiliser l'URL de l'endpoint",
-  "endpoint.fetch_url_hint": "Remplace la cible de récupération. L'URL de l'endpoint ci-dessus est utilisée dans la configuration générée ; cette URL est celle que le navigateur récupère réellement. Utile pour les proxies localhost.",
+  "endpoint.fetch_url_hint": "URL de remplacement optionnelle pour la sortie générée. Si renseignée, cette URL remplace l'URL de l'endpoint dans le chatLanguageModels.json final (comme la clé API secrète remplace la clé API). La récupération utilise toujours l'URL de l'endpoint ci-dessus.",
   "endpoint.url_key_required": "Endpoint #{num} : l'URL et la clé API sont requises.",
   "endpoint.url_key_required_log": "Endpoint #{num} : URL et clé API requises",
   "endpoint.fetch_title": "Récupérer cet endpoint uniquement",
