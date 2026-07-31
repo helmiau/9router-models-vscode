@@ -67,9 +67,12 @@ function showToast(type, msg, durationMs = 3000) {
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `<span class="material-symbols-outlined">${icons[type] || 'info'}</span><span>${escHtml(msg)}</span>`;
     container.appendChild(toast);
+    // Dismiss after durationMs; removal via fallback timer, NOT animationend —
+    // animationend never fires under prefers-reduced-motion (animation:none),
+    // which previously left toasts stuck on screen forever.
     setTimeout(() => {
         toast.classList.add('toast-out');
-        toast.addEventListener('animationend', () => toast.remove());
+        setTimeout(() => toast.remove(), 400);
     }, durationMs);
 }
 
