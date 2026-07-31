@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
 9Router Localhost Relay Server
-Bridges GitHub Pages (HTTPS) to localhost (HTTP) via WebSocket.
-The web app connects to this relay via WebSocket, and the relay fetches from localhost.
+Bridges GitHub Pages (HTTPS) to localhost (HTTP).
+
+Modes:
+- WebSocket relay (default, ws://127.0.0.1:9876)
+  Web app connects via WebSocket, relay fetches from localhost.
+
+- HTTP CORS proxy (--http, http://127.0.0.1:9877)
+  Adds CORS headers so the web app can fetch directly when on HTTP.
 
 Usage:
-    python scripts/localhost_relay.py [--port 9876] [--host 127.0.0.1]
-
-The relay:
-1. Starts a WebSocket server on the given port
-2. Web app connects via ws://127.0.0.1:9876
-3. Web app sends: {"action":"fetch","url":"http://localhost:20128/v1/models","token":"sk-xxx"}
-4. Relay fetches from localhost and returns the result via WebSocket
+    python scripts/localhost_relay.py                  # WebSocket only
+    python scripts/localhost_relay.py --http            # WebSocket + HTTP proxy
+    python scripts/localhost_relay.py --http-only       # HTTP proxy only
 """
 import asyncio
 import json
@@ -21,13 +23,15 @@ import urllib.request
 import urllib.error
 import ssl
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 
 try:
     import websockets
 except ImportError:
-    print("ERROR: websockets package not installed.")
+    print("WARN: websockets package not installed (WebSocket mode unavailable).")
     print("Install with: pip install websockets")
-    sys.exit(1)
+    websockets = None
 
 # --- Configuration ---
 DEFAULT_PORT = 9876
@@ -107,24 +111,245 @@ async def handle_client(websocket):
     except Exception as e:
         print(f"Error handling client {client_addr}: {e}")
 
+# --- HTTP Server (CORS Proxy + App Server) ---
+
+HTTP_PROXY_PORT = 9877
+APP_PORT = 9877  # same port for --app mode
+BASE_DIR = Path(__file__).resolve().parent.parent  # project root (D:\GithubRepository\9router-vscode)
+API_FILE_PATH = BASE_DIR / "api.txt"
+
+# MIME types for static file serving
+MIME_MAP = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".webp": "image/webp",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+}
+
+
+class AppServerHandler(BaseHTTPRequestHandler):
+    """HTTP server that serves the web app AND proxies API calls — same origin, no CORS needed."""
+
+    # Store config at class level (set before server starts)
+    api_url = None  # e.g. http://localhost:20128
+    api_key = None
+
+    def do_OPTIONS(self):
+        self._send_cors()
+        self.send_response(200)
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+
+        # --- API proxy endpoint ---
+        if path == "/proxy":
+            params = parse_qs(parsed.query)
+            target = params.get("url", [None])[0]
+            token = self.headers.get("Authorization", "").replace("Bearer ", "")
+            if not target:
+                self._send_json(400, {"error": "Usage: /proxy?url=TARGET_URL"})
+                return
+            result = fetch_models(target, token)
+            self._send_json(200, result)
+            return
+
+        # --- Models fetch proxy (direct passthrough to configurable API) ---
+        if path == "/v1/models" and self.api_url:
+            token = self.api_key or self.headers.get("Authorization", "").replace("Bearer ", "")
+            target = self.api_url.rstrip("/") + "/v1/models"
+            print(f"  [APP] Proxying /v1/models → {target}")
+            result = fetch_models(target, token)
+            self._send_json(200, result)
+            return
+
+        # --- Config endpoint (lets the frontend know if app mode is active) ---
+        if path == "/api/config":
+            self._send_json(200, {
+                "app_mode": True,
+                "api_url": self.api_url or "",
+                "has_api_key": bool(self.api_key),
+            })
+            return
+
+        # --- Serve static files ---
+        self._serve_static(path)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/key":
+            # Save API key from frontend
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length else b"{}"
+            try:
+                data = json.loads(body)
+                key = data.get("key", "")
+                if key:
+                    self.__class__.api_key = key
+                    API_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    API_FILE_PATH.write_text(key)
+                    print(f"  [APP] API key saved ({len(key)} chars)")
+                self._send_json(200, {"ok": True})
+            except Exception as e:
+                self._send_json(400, {"error": str(e)})
+            return
+
+        self._send_json(405, {"error": "Method not allowed"})
+
+    def _serve_static(self, path):
+        """Serve a static file from the project root."""
+        # Default to index.html
+        if path == "/" or path == "":
+            path = "/index.html"
+
+        file_path = BASE_DIR / path.lstrip("/")
+        # Security: prevent directory traversal
+        file_path = file_path.resolve()
+        if not str(file_path).startswith(str(BASE_DIR)):
+            self._send_error(403, "Forbidden")
+            return
+
+        if not file_path.exists() or not file_path.is_file():
+            self._send_error(404, "Not Found")
+            return
+
+        ext = file_path.suffix.lower()
+        ctype = MIME_MAP.get(ext, "application/octet-stream")
+        try:
+            data = file_path.read_bytes()
+            self.send_response(200)
+            self._send_cors()
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self._send_error(500, str(e))
+
+    def _send_json(self, status, obj):
+        data = json.dumps(obj).encode()
+        self.send_response(status)
+        self._send_cors()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _send_error(self, status, msg):
+        self.send_response(status)
+        self._send_cors()
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(msg.encode())
+
+    def _send_cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+
+    def log_message(self, fmt, *args):
+        method, path, code = args[0], args[1], args[2]
+        if path != "/favicon.ico":
+            print(f"  [HTTP] {method} {path} → {code}")
+
+    def log_error(self, fmt, *args):
+        pass
+
+
+def _run_http_server(host, port, handler_class, label):
+    """Run an HTTP server in a thread."""
+    server = HTTPServer((host, port), handler_class)
+    print(f"  {label} → http://{host}:{port}")
+    if "/proxy" not in label:
+        print(f"           Open browser at http://{host}:{port}")
+    server.serve_forever()
+
+
+async def run_http_server_async(host, port, handler_class, label):
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run_http_server, host, port, handler_class, label)
+
+
 async def main():
     parser = argparse.ArgumentParser(description="9Router Localhost Relay")
-    parser.add_argument("--port", type=int, default=OUTPUT_PORT, help=f"WebSocket port (default: {OUTPUT_PORT})")
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help=f"Bind address (default: {DEFAULT_HOST})")
+    parser.add_argument("--port", type=int, default=OUTPUT_PORT, help=f"WebSocket port (default: {OUTPUT_PORT})")
+    parser.add_argument("--http", action="store_true", help="Also start HTTP CORS proxy")
+    parser.add_argument("--http-only", action="store_true", help="Start HTTP CORS proxy only (no WebSocket)")
+    parser.add_argument("--http-port", type=int, default=HTTP_PROXY_PORT, help=f"HTTP proxy port (default: {HTTP_PROXY_PORT})")
+    parser.add_argument("--app", action="store_true", help="Serve web app + proxy API (recommended — no CORS)")
+    parser.add_argument("--api-url", type=str, default="", help="API base URL (e.g. http://localhost:20128)")
+    parser.add_argument("--api-key", type=str, default="", help="API key (or use api.txt)")
     args = parser.parse_args()
-    
-    print(f"""
-╔══════════════════════════════════════════════╗
-║     9Router Localhost Relay v1.0.0          ║
-║     WebSocket bridge for GitHub Pages       ║
-╠══════════════════════════════════════════════╣
-║  Listening on: ws://{args.host}:{args.port}       ║
-║  Press Ctrl+C to stop                       ║
-╚══════════════════════════════════════════════╝
-""")
-    
-    async with websockets.serve(handle_client, args.host, args.port):
-        await asyncio.Future()  # run forever
+
+    # --- --app mode: serve web app + proxy API, same origin ---
+    if args.app:
+        AppServerHandler.api_url = args.api_url
+        AppServerHandler.api_key = args.api_key
+        api_txt = BASE_DIR / "api.txt"
+        if not AppServerHandler.api_key and api_txt.exists():
+            AppServerHandler.api_key = api_txt.read_text().strip()
+        print(f"""
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+\u2551      9Router Localhost App Server v1.2.0      \u2551
+\u2551     Web app + API proxy \u2014 same origin         \u2551
+\u2551     No CORS, no mixed-content issues          \u2551
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550""")
+        if AppServerHandler.api_url:
+            print(f"  API: {AppServerHandler.api_url}")
+        print(f"  App: http://{args.host}:{args.http_port}/")
+        print(f"  Press Ctrl+C to stop\n")
+        AppServerHandler.api_url = AppServerHandler.api_url or ""
+        await run_http_server_async(args.host, args.http_port, AppServerHandler, "App + API proxy")
+        return
+
+    # --- Legacy modes (WebSocket / CORS proxy) ---
+    banner = []
+    banner.append("\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+    banner.append("\u2551      9Router Localhost Relay v1.1.0          \u2551")
+    banner.append("\u2551     Bridge localhost APIs to your browser    \u2551")
+    banner.append("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+
+    if not args.http_only:
+        if websockets is None:
+            print("ERROR: websockets package required for WebSocket mode.")
+            print("Install: pip install websockets")
+            sys.exit(1)
+        banner.append(f"\u2551  WebSocket relay \u2192 ws://{args.host}:{args.port}      \u2551")
+
+    if args.http or args.http_only:
+        banner.append(f"\u2551  HTTP CORS proxy \u2192 http://{args.host}:{args.http_port}    \u2551")
+
+    banner.append("\u2551  Press Ctrl+C to stop                       \u2551")
+    banner.append("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d")
+    print("\n".join(banner))
+    print()
+
+    async def _run_ws():
+        async with websockets.serve(handle_client, args.host, args.port):
+            await asyncio.Future()
+
+    async def _run_all():
+        coros = []
+        if not args.http_only:
+            coros.append(_run_ws())
+        if args.http or args.http_only:
+            coros.append(run_http_server_async(args.host, args.http_port, AppServerHandler, "HTTP CORS proxy"))
+        await asyncio.gather(*coros)
+
+    await _run_all()
 
 if __name__ == "__main__":
     try:

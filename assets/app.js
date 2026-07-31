@@ -12,6 +12,8 @@ let editMode = false;
 let currentView = 'tree'; // 'json' | 'tree'
 let endpointIdCounter = 0;
 let treeExpanded = {};
+let isAppMode = false;
+let appModeApiUrl = '';
 
 // --- DOM helpers ---
 
@@ -461,24 +463,55 @@ function isLocalhost(url) {
     } catch { return false; }
 }
 
+// --- App Mode (same-origin proxy server) ---
+async function initAppMode() {
+    try {
+        const resp = await fetch('/api/config');
+        if (resp.ok) {
+            const cfg = await resp.json();
+            if (cfg.app_mode) {
+                isAppMode = true;
+                appModeApiUrl = cfg.api_url || '';
+                log('info', 'App mode active — using same-origin proxy');
+                setStatus('App mode — same-origin proxy active', 'info');
+            }
+        }
+    } catch {}
+}
+
 // --- WebSocket Relay for Localhost ---
 let wsRelay = null;
+const WS_PORT = 9876;
+const HTTP_PROXY_PORT = 9877;
 
 function initWebSocketRelay() {
     if (wsRelay) return;
-    const wsUrl = 'ws://127.0.0.1:9876';
+    const wsUrl = `ws://127.0.0.1:${WS_PORT}`;
     wsRelay = new WebSocket(wsUrl);
     wsRelay.onopen = () => { log('info', 'WebSocket relay connected'); setStatus('WebSocket relay connected', 'info'); };
     wsRelay.onclose = () => { log('warn', 'WebSocket relay disconnected'); setStatus('WebSocket relay disconnected', 'warn'); wsRelay = null; };
-    wsRelay.onerror = (e) => { log('error', 'WebSocket relay error'); setStatus('WebSocket relay error', 'err'); };
+    wsRelay.onerror = () => { wsRelay = null; };
+}
+
+async function waitForWsOpen(ms = 2000) {
+    if (wsRelay && wsRelay.readyState === WebSocket.OPEN) return true;
+    return new Promise(r => {
+        if (!wsRelay || wsRelay.readyState === WebSocket.CLOSED) { r(false); return; }
+        if (wsRelay.readyState === WebSocket.OPEN) { r(true); return; }
+        const t = setTimeout(() => r(false), ms);
+        wsRelay.addEventListener('open', () => { clearTimeout(t); r(true); }, { once: true });
+        wsRelay.addEventListener('close', () => { clearTimeout(t); r(false); }, { once: true });
+        wsRelay.addEventListener('error', () => { clearTimeout(t); r(false); }, { once: true });
+    });
 }
 
 async function fetchViaWebSocket(url, token) {
-    if (!wsRelay || wsRelay.readyState !== WebSocket.OPEN) {
+    if (!wsRelay || wsRelay.readyState === WebSocket.CLOSED) {
         initWebSocketRelay();
-        await new Promise(r => setTimeout(r, 500));
-        if (!wsRelay || wsRelay.readyState !== WebSocket.OPEN) return { error: 'WebSocket relay not available' };
+        const ok = await waitForWsOpen();
+        if (!ok) return { error: 'WebSocket relay not running — start localhost_relay.py' };
     }
+    if (wsRelay.readyState !== WebSocket.OPEN) return { error: 'WebSocket relay not available' };
     return new Promise((resolve) => {
         const request = { action: 'fetch', url: url, token: token };
         wsRelay.send(JSON.stringify(request));
@@ -493,44 +526,31 @@ async function fetchViaWebSocket(url, token) {
     });
 }
 
-function downloadLocalhostScript(url, token) {
-    const scriptContent = `#!/usr/bin/env python3
-import sys, json, os, urllib.request, urllib.error
-OUTPUT_DIR = "sources"
-OUTPUT_FILE = "localhost_models.json"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-def fetch_models(url, token):
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
-        if data.get("object") != "list": return None, f"Expected object=list, got {data.get('object')}"
-        return data, None
-    except Exception as e: return None, str(e)
-def main():
-    url = sys.argv[1] if len(sys.argv) > 1 else "${url}"
-    token = sys.argv[2] if len(sys.argv) > 2 else "${token}"
-    print(f"Fetching from {url}...")
-    data, err = fetch_models(url, token)
-    if err: print(f"ERROR: {err}"); return 1
-    path = os.path.join(OUTPUT_DIR, OUTPUT_FILE)
-    with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent="\t", ensure_ascii=False)
-    print(f"Saved to {path}. Upload this file in the web app."); return 0
-if __name__ == "__main__": sys.exit(main())`;
-    const blob = new Blob([scriptContent], { type: 'text/x-python' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'fetch_localhost.py';
-    a.click();
-    log('success', 'Downloaded fetch_localhost.py');
+async function fetchViaHttpProxy(url, token) {
+    const proxyUrl = `http://127.0.0.1:${HTTP_PROXY_PORT}/proxy?url=${encodeURIComponent(url)}`;
+    try {
+        const resp = await fetch(proxyUrl, {
+            headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+        });
+        if (!resp.ok) return { error: `HTTP proxy error: ${resp.status}` };
+        return await resp.json();
+    } catch (e) {
+        return { error: 'HTTP proxy not available — start localhost_relay.py with --http' };
+    }
 }
 
 function showLocalhostSolution(url) {
     const hint = $('corsHint');
     if (!hint) return;
     hint.classList.remove('hidden');
-    const tKey = isMixedContent(url) ? 'home.localhost_detected' : 'home.localhost_detected';
-    hint.innerHTML = t(tKey, {url: url});
+    hint.innerHTML = `<strong>🔒 Mixed content blocked</strong><br>
+        Page via <code>https://</code> cannot directly fetch <code>${escHtml(url)}</code>.<br><br>
+        <strong>Solution — start the relay:</strong><br>
+        <code>python scripts/localhost_relay.py</code><br><br>
+        <strong>Or use one of these:</strong><br>
+        • Open page via <code>file://</code> (double-click <code>index.html</code>)<br>
+        • <strong>Paste JSON</strong> — fetch models manually, paste here<br>
+        • Download a fetch script from the <strong>Scripts</strong> tab`;
 }
 
 function isMixedContent(apiUrl) {
@@ -538,10 +558,6 @@ function isMixedContent(apiUrl) {
         try { return new URL(apiUrl).protocol === 'http:'; } catch {}
     }
     return false;
-}
-
-function likelyCorsBlocked(errMsg) {
-    return /Failed to fetch|NetworkError|Network request failed|CORS|Access-Control-Allow-Origin|Reason: CORS/i.test(errMsg);
 }
 
 // --- Endpoint list management ---
@@ -558,6 +574,7 @@ function getEndpointData() {
             secret: row.querySelector('.ep-secret')?.value?.trim() || '',
             apiType: row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions',
             source: source,
+            fetchUrl: row.querySelector('.ep-fetchUrl')?.value?.trim() || '',
         });
     });
     return data;
@@ -569,7 +586,7 @@ function saveEndpoints() {
     updateCurlCommand();
 }
 
-function addEndpoint(name, url, key, secret, apiType, source) {
+function addEndpoint(name, url, key, secret, apiType, source, fetchUrl) {
     endpointIdCounter++;
     const id = endpointIdCounter;
     const at = apiType || 'chat-completions';
@@ -637,6 +654,16 @@ function addEndpoint(name, url, key, secret, apiType, source) {
             </div>
         </div>
         <div class="field">
+            <label><span class="material-symbols-outlined label-icon">alt_route</span> ${t("endpoint.fetch_url_label")}</label>
+            <div class="input-row">
+                <input type="text" class="ep-fetchUrl" value="${escHtml(fetchUrl || '')}" placeholder="${t('endpoint.fetch_url_placeholder')}">
+                <button type="button" class="toggle-vis-btn" onclick="toggleFieldVis(this)" title="${t('endpoint.show_hide')}"><span class="material-symbols-outlined">visibility</span></button>
+                <button type="button" class="copy-btn" onclick="copyField(this.closest('.endpoint-row').querySelector('.ep-fetchUrl').id)" title="${t('endpoint.copy')}"><span class="material-symbols-outlined">content_copy</span></button>
+                <button type="button" class="paste-btn" onclick="pasteField(this.closest('.endpoint-row').querySelector('.ep-fetchUrl').id)" title="${t('endpoint.paste')}"><span class="material-symbols-outlined">content_paste</span></button>
+            </div>
+            <div class="ep-hint-box"><span class="material-symbols-outlined ep-hint-icon">info</span><span class="ep-hint-text">${t("endpoint.fetch_url_hint")}</span></div>
+        </div>
+        <div class="field">
             <label><span class="material-symbols-outlined label-icon">lock</span> ${t("endpoint.secret_label")}</label>
             <div class="input-row">
                 <input type="text" class="ep-secret" value="${escHtml(secret || '')}" placeholder="\${input:chat.lm.secret.-65d90303}">
@@ -668,6 +695,7 @@ function addEndpoint(name, url, key, secret, apiType, source) {
     row.querySelector('.ep-key').id = `epKey_${id}`;
     row.querySelector('.ep-name').id = `epName_${id}`;
     row.querySelector('.ep-secret').id = `epSecret_${id}`;
+    row.querySelector('.ep-fetchUrl').id = `epFetchUrl_${id}`;
 
     // Listen for changes to save
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('change', saveEndpoints));
@@ -1027,7 +1055,7 @@ function loadEndpoints() {
         if (!Array.isArray(data) || data.length === 0) {
             addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
         } else {
-            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.secret, ep.apiType, ep.source));
+            data.forEach(ep => addEndpoint(ep.name, ep.url, ep.key, ep.secret, ep.apiType, ep.source, ep.fetchUrl));
         }
     } catch {
         addEndpoint('9Router', 'http://localhost:20128/v1/models', '');
@@ -1203,6 +1231,7 @@ async function fetchSingleEndpoint(id) {
     const secret = row.querySelector('.ep-secret')?.value?.trim() || '';
     const apiType = row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions';
     const source = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
+    const fetchUrl = row.querySelector('.ep-fetchUrl')?.value?.trim() || '';
 
     // --- Paste source ---
     if (source === 'paste') {
@@ -1240,20 +1269,66 @@ async function fetchSingleEndpoint(id) {
     setEndpointStatus(id, 'loading', 'Fetching...');
     log('action', t('log.fetching', {id: id, url: url}));
 
-    const endpoint = buildEndpoint(url);
+    const endpoint = buildEndpoint(fetchUrl || url);
     const modelsUrl = extractBaseUrl(url);
 
     let raw;
-    // Check if this is a localhost URL and we're on GitHub Pages (HTTPS)
-    if (isLocalhost(url) && (location.protocol === 'https:' || location.hostname.includes('github.io'))) {
-        log('info', 'Localhost detected on HTTPS. Attempting WebSocket relay...');
+    // --- App mode: same-origin proxy (overrides everything below) ---
+    if (isAppMode) {
+        log('info', 'App mode active — routing through same-origin proxy');
+        const proxyUrl = '/proxy?url=' + encodeURIComponent(endpoint);
+        try {
+            const resp = await fetch(proxyUrl, {
+                headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' }
+            });
+            const result = await resp.json();
+            if (result && result.success) {
+                raw = result.data;
+            } else {
+                setEndpointStatus(id, 'err', result?.error || 'Proxy fetch failed');
+                log('error', t('log.fetch_error', {id: id, msg: result?.error || 'Proxy failed'}));
+                return null;
+            }
+        } catch (e) {
+            setEndpointStatus(id, 'err', 'Proxy error: ' + (e.message || e));
+            log('error', t('log.fetch_error', {id: id, msg: 'Proxy error'}));
+            return null;
+        }
+    }
+
+    // Localhost + HTTPS/GitHub Pages → must use relay (direct fetch blocked by mixed-content + CORS)
+    if (!raw && isLocalhost(url) && (location.protocol === 'https:' || location.hostname.includes('github.io'))) {
+        log('info', 'Localhost detected on HTTPS. Trying WebSocket relay...');
         const wsResult = await fetchViaWebSocket(endpoint, key);
         if (wsResult && wsResult.success) {
             raw = wsResult.data;
         } else {
-            const errMsg = wsResult?.error || 'WebSocket relay failed';
-            log('warn', errMsg + '. Falling back to manual fetch.');
+            log('warn', wsResult?.error || 'WebSocket relay failed');
             showLocalhostSolution(url);
+            setEndpointStatus(id, 'err', '🔒 HTTPS page → localhost blocked. Start relay: python scripts/localhost_relay.py');
+            log('error', t('log.fetch_error', {id: id, msg: 'HTTPS→localhost blocked, relay unavailable'}));
+            return null;
+        }
+    }
+
+    // Localhost + HTTP → try WebSocket relay then HTTP CORS proxy
+    if (!raw && isLocalhost(url) && location.protocol === 'http:') {
+        log('info', 'Localhost detected on HTTP. Trying relay...');
+        const wsResult = await fetchViaWebSocket(endpoint, key);
+        if (wsResult && wsResult.success) {
+            raw = wsResult.data;
+        } else {
+            log('warn', wsResult?.error || 'WebSocket failed, trying HTTP proxy...');
+            const proxyResult = await fetchViaHttpProxy(endpoint, key);
+            if (proxyResult && proxyResult.success) {
+                raw = proxyResult.data;
+            } else {
+                log('warn', 'HTTP proxy also failed');
+                showLocalhostSolution(url);
+                setEndpointStatus(id, 'err', '🔒 CORS blocked — use relay or paste/upload');
+                log('error', t('log.fetch_error', {id: id, msg: 'CORS blocked'}));
+                return null;
+            }
         }
     }
 
@@ -1344,7 +1419,7 @@ async function runFetchAll() {
         });
         if (hasMixed) {
             $('corsHint').classList.remove('hidden');
-            $('corsHint').innerHTML = t('home.cors_hint');
+            $('corsHint').innerHTML = t('home.cors_hint') + ' <br><br><strong>Relay:</strong> <code>cd scripts && python localhost_relay.py --http</code>';
         } else if (hasCors) {
             $('corsHint').classList.remove('hidden');
             $('corsHint').innerHTML = '<strong>🔒 CORS blocked?</strong><br>Page via <code>http://</code> cannot cross-origin fetch even to localhost.<br><br><strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> scripts from the Scripts tab';
@@ -1823,6 +1898,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init about panel (loads README.md)
     initAboutPanel();
+
+    // Detect app mode (same-origin proxy server)
+    initAppMode();
 
     // Restore howto collapsed state
     try {

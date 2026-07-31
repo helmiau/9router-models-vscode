@@ -93,8 +93,10 @@
                 </div>
                 <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
                 <div id="corsHint" class="hint-box cors-hint hidden">
-                    <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>
-                    <strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Run a local server: <code>python -m http.server 8080</code><br>• Paste JSON using the section above<br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> scripts
+                    <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>                    <strong>✅ Best solution — run app server (same-origin, no CORS):</strong><br>
+                    <code style="display:block;margin:6px 0;padding:6px 10px;background:var(--color-bg-muted);border-radius:6px">python scripts/localhost_relay.py --app --api-url http://localhost:20128</code>
+                    <span style="display:block;margin:4px 0 8px;font-size:0.9em">Then open <strong>http://127.0.0.1:9877/</strong></span>
+                    <strong>Other options:</strong><br>• WebSocket relay: <code>python scripts/localhost_relay.py --http</code><br>• Open page via <code>file://</code> — double-click <code>index.html</code><br>• Paste JSON using section above<br>• Use scripts from <strong>Scripts</strong> tab
                 </div>
                 <div id="installHint" class="hint-box install-hint hidden">
                     <div class="curl-header">
