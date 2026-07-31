@@ -162,6 +162,7 @@ body {
     background: var(--color-bg-body);
     color: var(--color-text-primary);
     min-height: 100vh;
+    min-height: 100dvh; /* mobile browsers: URL bar shrinks viewport */
     font-size: 0.875rem;
     line-height: var(--line-height-normal);
     letter-spacing: var(--tracking-normal);
@@ -209,6 +210,7 @@ body.light .topbar-btn .icon-light { display: inline; }
 body {
     display: flex; flex-direction: column;
     height: 100vh; overflow: hidden;
+    height: 100dvh; /* dynamic viewport — avoids bottom cutoff in mobile browsers */
 }
 .app-wrapper {
     display: flex; flex: 1; min-height: 0; overflow: hidden;
@@ -1532,6 +1534,7 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
         min-width: 0 !important;
         max-width: none !important;
         height: 100vh;
+        height: 100dvh; /* dynamic viewport — drawer fills visible screen */
         z-index: 1000;
         transform: translateX(-100%);
         transition: transform var(--duration-slow) var(--ease-emphasized);
