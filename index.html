@@ -16,23 +16,14 @@
 <body>
     <!-- TOP BAR -->
     <header class="topbar" id="topbar">
-        <div class="topbar-left">
-            <button class="topbar-btn topbar-menu-btn" id="menuBtn" onclick="toggleMobileNav()" title="Menu" aria-label="Menu"><span class="material-symbols-outlined">menu</span></button>
+        <div class="topbar-left" id="topbarLeft" onclick="toggleSidebar()" title="Menu">
             <span class="material-symbols-outlined topbar-icon">mobile_code</span>
             <div class="topbar-title-group">
                 <span class="topbar-title">VSCode Modelator</span>
                 <span class="topbar-subtitle">VS Code Custom AI Provider Generator</span>
             </div>
         </div>
-        <div class="topbar-right">
-            <button class="topbar-btn" id="themeToggleTopBtn" onclick="toggleTheme()" title="Toggle theme">
-                <span class="material-symbols-outlined icon-dark">dark_mode</span>
-                <span class="material-symbols-outlined icon-light">light_mode</span>
-            </button>
-            <button class="topbar-btn" id="langBtn" onclick="openLangModal()" title="Language">
-                <span class="material-symbols-outlined">translate</span>
-            </button>
-        </div>
+        <!-- theme/lang/reset moved to sidebar Preferences -->
     </header>
     <div class="app-wrapper" id="appWrapper">
     <!-- SIDEBAR NAV (Astryx SideNav pattern) -->
@@ -54,6 +45,13 @@
                 <button class="sidebar-item" data-panel="log" onclick="switchPanel('log')" title="Activity Log"><span class="material-symbols-outlined sidebar-icon-outline">terminal</span><span class="material-symbols-outlined sidebar-icon-filled">terminal</span><span class="sidebar-label" data-i18n="sidebar.log">Log</span></button>
 
                 <button class="sidebar-item" data-panel="about" onclick="switchPanel('about')" title="About"><span class="material-symbols-outlined sidebar-icon-outline">info</span><span class="material-symbols-outlined sidebar-icon-filled">info</span><span class="sidebar-label" data-i18n="sidebar.about">About</span></button>
+            </div>
+            <!-- Section: Preferences -->
+            <div class="sidebar-section">
+                <span class="sidebar-section-heading" data-i18n="sidebar.preferences">Preferences</span>
+                <button class="sidebar-item" id="themeBtn" onclick="toggleTheme()" data-i18n-title="sidebar.title.theme" title="Toggle theme"><span class="material-symbols-outlined sidebar-icon-outline icon-dark">dark_mode</span><span class="material-symbols-outlined sidebar-icon-outline icon-light">light_mode</span><span class="sidebar-label" data-i18n="sidebar.theme">Theme</span></button>
+                <button class="sidebar-item" id="langBtn" onclick="openLangModal()" data-i18n-title="sidebar.lang" title="Language"><img class="lang-flag sidebar-lang-flag" src="https://flagicons.lipis.dev/flags/4x3/us.svg" alt="us" width="20" height="15"><span class="sidebar-label" data-i18n="sidebar.lang">Language</span></button>
+                <button class="sidebar-item" id="resetBtn" onclick="openResetModal()" data-i18n-title="sidebar.title.reset" title="Reset"><span class="material-symbols-outlined sidebar-icon-outline">refresh</span><span class="sidebar-label" data-i18n="sidebar.reset">Reset</span></button>
             </div>
         </div>
         <div class="sidebar-bottom">
@@ -216,6 +214,26 @@
                 <input type="text" class="modal-search" id="langSearch" placeholder="Search language…" oninput="filterLanguages()" aria-label="Search languages" title="Search languages" autocomplete="off">
             </div>
             <div class="modal-list" id="langList" role="listbox" aria-label="Available languages" data-empty="No languages match your search."></div>
+        </div>
+    </div>
+
+    <!-- Reset Modal · two actions: update web libs / full clean -->
+    <div class="modal-overlay hidden" id="resetModal" onclick="if(event.target===this)closeResetModal()" role="dialog" aria-modal="true" aria-label="Reset">
+        <div class="modal-container">
+            <div class="modal-header">
+                <span class="modal-header-title"><span class="material-symbols-outlined">refresh</span> <span id="resetModalTitle" data-i18n="reset.title">Reset</span></span>
+                <button class="modal-close-btn" onclick="closeResetModal()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-actions">
+                <button class="reset-option" onclick="updateWebLibs()">
+                    <span class="material-symbols-outlined reset-option-icon">cloud_download</span>
+                    <span class="reset-option-text"><strong data-i18n="reset.update_lib">Update library web</strong><small data-i18n="reset.update_lib_desc">Re-fetch Ace &amp; web libraries. Your data stays.</small></span>
+                </button>
+                <button class="reset-option reset-option-danger" onclick="cleanAllCache()">
+                    <span class="material-symbols-outlined reset-option-icon">delete_forever</span>
+                    <span class="reset-option-text"><strong data-i18n="reset.clean_all">Full clean cache web</strong><small data-i18n="reset.clean_all_desc">Wipe all saved endpoints, data &amp; web cache.</small></span>
+                </button>
+            </div>
         </div>
     </div>
 

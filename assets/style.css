@@ -216,17 +216,20 @@ body {
     display: flex; flex: 1; min-height: 0; overflow: hidden;
 }
 
-/* --- Sidebar (Astryx SideNav pattern) --- */
+/* --- Sidebar (drawer, all viewports — same as mobile) --- */
 .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(280px, 85vw);
     display: flex; flex-direction: column;
-    width: 52px; min-width: 52px; height: 100%;
     background: var(--color-bg-inverted);
     border-right: 1px solid var(--color-border);
-    overflow: hidden;
-    transition: width var(--duration-slow) var(--ease-emphasized), min-width var(--duration-slow) var(--ease-emphasized);
-    flex-shrink: 0;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+    z-index: 1000;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform var(--duration-slow) var(--ease-emphasized);
 }
-.sidebar.expanded { width: 220px; min-width: 220px; }
+.sidebar.nav-open { transform: translateX(0); }
 
 .sidebar-nav {
     flex: 1; display: flex; flex-direction: column;
@@ -236,11 +239,8 @@ body {
 .sidebar-section { display: flex; flex-direction: column; gap: 2px; }
 .sidebar-section-heading {
     font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--color-text-disabled); padding: var(--spacing-2) var(--spacing-2) var(--spacing-1);
-    opacity: 0; height: 0; overflow: hidden;
-    transition: opacity var(--duration-fast) var(--ease-standard), height var(--duration-medium) var(--ease-standard);
+    color: var(--color-text-disabled); padding: var(--spacing-2) var(--spacing-3) var(--spacing-1);
 }
-.sidebar.expanded .sidebar-section-heading { opacity: 1; height: auto; padding: var(--spacing-2) var(--spacing-3) var(--spacing-1); }
 
 .sidebar-header {
     padding: var(--spacing-1);
@@ -256,9 +256,7 @@ body {
     font-size: 0.58rem; color: var(--color-text-disabled);
     text-align: center; padding: var(--spacing-1) 0;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard);
 }
-.sidebar.expanded .sidebar-footer { opacity: 1; }
 .sidebar-footer a { color: var(--color-blue); text-decoration: none; }
 .sidebar-footer a:hover { text-decoration: underline; }
 
@@ -298,6 +296,14 @@ body {
 }
 .sidebar-item.active::before { height: 20px; }
 
+/* Active item icon shifts right so the left indicator sits at half the icon */
+.sidebar-item.active .sidebar-icon-outline,
+.sidebar-item.active .sidebar-icon-filled {
+    transform: translateX(10px); /* half of 1.25rem (20px) icon */
+    transition: transform var(--duration-medium) var(--ease-spring);
+}
+.sidebar-item.active .sidebar-lang-flag { transform: translateX(10px); }
+
 /* --- Icon sizing --- */
 .sidebar-icon-outline, .sidebar-icon-filled { font-size: 1.25rem; flex-shrink: 0; width: 1.25rem; text-align: center; }
 
@@ -313,19 +319,16 @@ body {
 }
 .sidebar-collapse-btn:hover { background: var(--color-overlay-hover); color: var(--color-text-primary); }
 .sidebar-collapse-btn .material-symbols-outlined { font-size: 1.25rem; flex-shrink: 0; width: 1.25rem; text-align: center; transition: transform var(--duration-medium) var(--ease-spring); }
-.sidebar.expanded .sidebar-collapse-btn .material-symbols-outlined { transform: rotate(180deg); }
+.sidebar.nav-open .sidebar-collapse-btn .material-symbols-outlined { transform: rotate(180deg); }
 
-/* --- Labels (collapsed=hidden, expanded=visible) --- */
+/* --- Labels (always visible in drawer) --- */
 .sidebar-label {
     font-size: 0.8rem; font-weight: 500;
-    opacity: 0; width: 0; overflow: hidden;
-    transition: opacity var(--duration-medium) var(--ease-emphasized) 30ms, width var(--duration-slow) var(--ease-emphasized);
     white-space: nowrap; text-align: left;
 }
 .sidebar-collapse-label { font-size: 0.7rem; color: var(--color-text-disabled); }
-.sidebar.expanded .sidebar-label { opacity: 1; width: auto; }
-.sidebar.expanded .sidebar-item { justify-content: flex-start; gap: var(--spacing-3); padding-left: var(--spacing-3); }
-.sidebar.expanded .sidebar-collapse-btn { justify-content: flex-start; gap: var(--spacing-3); padding-left: var(--spacing-3); }
+.sidebar-item { justify-content: flex-start; gap: var(--spacing-3); padding-left: var(--spacing-3); }
+.sidebar-collapse-btn { justify-content: flex-start; gap: var(--spacing-3); padding-left: var(--spacing-3); }
 
 /* --- Theme toggle icon switching --- */
 .sidebar-item .icon-light, body.light .sidebar-item .icon-dark { display: none; }
@@ -1511,7 +1514,40 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     transition: opacity var(--duration-medium) var(--ease-standard);
 }
 .nav-overlay.nav-open { opacity: 1; pointer-events: auto; }
-.topbar-menu-btn { display: none; }
+.topbar-left { cursor: pointer; }
+
+/* --- Reset modal actions --- */
+.modal-actions {
+    display: flex; flex-direction: column; gap: var(--spacing-2);
+    padding: var(--spacing-4);
+}
+.reset-option {
+    display: flex; align-items: center; gap: var(--spacing-3);
+    padding: var(--spacing-3); border-radius: var(--radius-inner);
+    border: 1px solid var(--color-border); background: var(--color-bg-card);
+    color: var(--color-text-primary); cursor: pointer; text-align: left;
+    transition: background var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard),
+                transform var(--duration-medium) var(--ease-spring);
+}
+.reset-option:hover {
+    background: var(--color-overlay-hover); border-color: var(--color-blue);
+    transform: translateY(-1px);
+}
+.reset-option:active { transform: scale(0.98); }
+.reset-option-icon { font-size: 1.4rem; color: var(--color-blue); flex-shrink: 0; }
+.reset-option-danger .reset-option-icon { color: var(--color-error); }
+.reset-option-danger:hover { border-color: var(--color-error); }
+.reset-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reset-option-text strong { font-size: 0.85rem; font-weight: 600; }
+.reset-option-text small { font-size: 0.7rem; color: var(--color-text-secondary); line-height: 1.4; }
+
+/* --- Sidebar flag (language button) --- */
+.sidebar-lang-flag {
+    width: 20px; height: 15px; border-radius: 2px;
+    flex-shrink: 0; object-fit: cover;
+}
+.sidebar-item .sidebar-lang-flag { width: 1.25rem; height: 0.95rem; }
 
 /* --- Reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
@@ -1525,39 +1561,18 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
 
 /* --- Responsive: mobile drawer (< 768px) --- */
 @media (max-width: 768px) {
-    .topbar-menu-btn { display: inline-flex; }
-    /* Sidebar → slide-in drawer from left */
-    .sidebar {
-        position: fixed !important;
-        top: 0; left: 0; bottom: 0;
-        width: min(280px, 85vw) !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        height: 100vh;
-        height: 100dvh; /* dynamic viewport — drawer fills visible screen */
-        z-index: 1000;
-        transform: translateX(-100%);
-        transition: transform var(--duration-slow) var(--ease-emphasized);
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
-        overflow-y: auto;
-    }
-    .sidebar.nav-open { transform: translateX(0); }
-    /* Drawer shows full content — labels & headings always visible */
-    .sidebar-header { display: flex !important; }
-    .sidebar-label, .sidebar-collapse-label { opacity: 1 !important; width: auto !important; }
-    .sidebar-item { justify-content: flex-start !important; padding-left: var(--spacing-3) !important; gap: var(--spacing-3) !important; }
-    .sidebar-section-heading { opacity: 1 !important; height: auto !important; padding: var(--spacing-2) var(--spacing-3) var(--spacing-1) !important; }
-    .sidebar-footer { opacity: 1; }
+    .topbar-left:active .topbar-icon { transform: scale(0.92); }
+    .topbar-left:active .topbar-title-group { transform: scale(0.98); }
     .container { max-width: 100%; padding: 0 var(--spacing-3); }
 }
 
 /* --- Responsive: mobile (< 480px) --- */
 @media (max-width: 480px) {
-    /* --- Topbar: compact --- */
-    .topbar { height: 46px; padding: 0 var(--spacing-3); }
+    /* --- Topbar: compact but taller — keep subtitle readable --- */
+    .topbar { height: 58px; padding: 0 var(--spacing-3); }
     .topbar-icon { font-size: 1.1rem; }
     .topbar-title { font-size: 0.78rem !important; }
-    .topbar-subtitle { display: none; }
+    .topbar-subtitle { display: block; font-size: 0.6rem; }
     .topbar-divider { display: none; }
     /* --- Content: no bottom safe-area (drawer replaces tab bar) --- */
     .container { padding: 0 var(--spacing-3); }

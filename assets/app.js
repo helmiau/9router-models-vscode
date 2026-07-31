@@ -147,12 +147,55 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeMobileNav();
 });
 
-function toggleSidebar() {
-    if (window.matchMedia('(max-width: 768px)').matches) { toggleMobileNav(); return; }
-    const sb = $('sidebar');
-    sb.classList.toggle('expanded');
-    $('sidebarToggleIcon').textContent = sb.classList.contains('expanded') ? 'menu' : 'menu_open';
+function refreshPage() {
+    // Legacy entry kept for safety — routes to the reset modal.
+    openResetModal();
 }
+
+function openResetModal() {
+    $('resetModal').classList.remove('hidden');
+    setTimeout(() => document.addEventListener('keydown', _onResetModalKey), 0);
+}
+
+function closeResetModal() {
+    $('resetModal').classList.add('hidden');
+    document.removeEventListener('keydown', _onResetModalKey);
+}
+function _onResetModalKey(e) {
+    if (e.key === 'Escape') closeResetModal();
+}
+
+function _wipeWebCache() {
+    if ('caches' in window) {
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(() => {});
+    }
+}
+
+/* Option 1: update web libraries — clear web cache, keep user data */
+function updateWebLibs() {
+    _wipeWebCache();
+    location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+}
+
+/* Option 2: full clean — wipe localStorage + web cache */
+function cleanAllCache() {
+    try { localStorage.clear(); } catch (e) {}
+    _wipeWebCache();
+    location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+}
+
+function toggleSidebar() {
+    toggleMobileNav();
+}
+
+/* Intro: animate drawer open on load, then auto-hide */
+window.addEventListener('load', () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setTimeout(() => {
+        toggleMobileNav();
+        setTimeout(toggleMobileNav, 1700);
+    }, 450);
+});
 
 function toggleSidePanel() {
     const panel = $('sidePanel');
@@ -376,8 +419,8 @@ function toggleTheme() {
     body.classList.toggle('light');
     localStorage.setItem('9router_theme', body.classList.contains('light') ? 'light' : 'dark');
     updateAceTheme();
-    const btn = $('themeToggleTopBtn');
-    const visibleIcon = body.classList.contains('light') ? btn.querySelector('.icon-light') : btn.querySelector('.icon-dark');
+    const btn = $('themeBtn') || $('themeToggleTopBtn');
+    const visibleIcon = btn ? (body.classList.contains('light') ? btn.querySelector('.icon-light') : btn.querySelector('.icon-dark')) : null;
     if (visibleIcon) animateIcon(visibleIcon, 'icon-fadeswap');
     log('action', t('log.theme_changed', { mode: body.classList.contains('light') ? 'light' : 'dark' }));
 }
@@ -446,10 +489,11 @@ function populateLangModalList() {
 
 function updateLangBtn() {
     const btn = $('langBtn');
+    if (!btn) return;
     const cur = window._langCode || 'en_US';
     const lang = LANGUAGES.find(l => l.code === cur);
-    if (lang) btn.innerHTML = `<img class="lang-flag" src="${FLAG_BASE}${lang.flag}.svg" alt="${lang.flag}" width="20" height="15">`;
-    else btn.innerHTML = '<span class="material-symbols-outlined">translate</span>';
+    const flag = btn.querySelector('img.lang-flag');
+    if (lang && flag) { flag.src = FLAG_BASE + lang.flag + '.svg'; flag.alt = lang.flag; }
 }
 
 function filterLanguages() {

@@ -169,7 +169,7 @@
     "sidebar.log": "Log",
     "sidebar.navigation": "Navigation",
     "sidebar.scripts": "Scripts",
-    "sidebar.theme": "Theme",
+    "sidebar.theme": "Theme", "sidebar.preferences": "Preferences", "sidebar.reset": "Reset", "sidebar.title.reset": "Reset", "reset.title": "Reset", "reset.update_lib": "Update library web", "reset.update_lib_desc": "Re-fetch Ace & web libraries. Your data stays.", "reset.clean_all": "Full clean cache web", "reset.clean_all_desc": "Wipe all saved endpoints, data & web cache.", "topbar.refresh": "Refresh & clear cache",
     "sidebar.title.about": "About",
     "sidebar.title.editor": "Viewer & Editor",
     "sidebar.title.home": "Home",
