@@ -204,13 +204,13 @@
 
   // --- State ---
   window._langCode = localStorage.getItem(LANG_STORAGE_KEY) || navigator.language?.replace('-', '_') || 'en_US';
-  // Normalize: 'en-US' → 'en_US', 'id' → 'id_ID'
+  // Normalize: 'en-US' → 'en_US', 'id' → 'id_ID', 'zh-CN' → 'zh_CN', etc.
   if (!window._langCode.includes('_')) {
-    const map = { en: 'en_US', id: 'id_ID' };
+    const map = { en: 'en_US', id: 'id_ID', zh: 'zh_CN', vi: 'vi_VN', ja: 'ja_JP', fr: 'fr_FR' };
     window._langCode = map[window._langCode] || window._langCode;
   }
   // Only allow known codes
-  if (!['en_US', 'id_ID'].includes(window._langCode)) window._langCode = 'en_US';
+  if (!['en_US', 'id_ID', 'zh_CN', 'vi_VN', 'ja_JP', 'fr_FR'].includes(window._langCode)) window._langCode = 'en_US';
 
   window._langData = Object.assign({}, FALLBACK_DATA);
 

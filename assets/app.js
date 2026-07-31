@@ -365,6 +365,7 @@ window._onLangChange = function () {
     document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
     // Re-populate lang modal list
     populateLangModalList();
+    updateLangBtn();
     // Re-init dynamic panels
     initScriptPanel();
     initAboutPanel();
@@ -381,9 +382,15 @@ function switchLang(code) {
 }
 
 const LANGUAGES = [
-    { code: 'en_US', name: 'English (US)', native: 'English (US)' },
-    { code: 'id_ID', name: 'Indonesian', native: 'Bahasa Indonesia' },
+    { code: 'en_US', name: 'English (US)', native: 'English (US)', flag: 'us' },
+    { code: 'id_ID', name: 'Indonesian', native: 'Bahasa Indonesia', flag: 'id' },
+    { code: 'zh_CN', name: 'Chinese (Simplified)', native: '中文 (简体)', flag: 'cn' },
+    { code: 'vi_VN', name: 'Vietnamese', native: 'Tiếng Việt', flag: 'vn' },
+    { code: 'ja_JP', name: 'Japanese', native: '日本語', flag: 'jp' },
+    { code: 'fr_FR', name: 'French', native: 'Français', flag: 'fr' },
 ];
+
+const FLAG_BASE = 'https://flagicons.lipis.dev/flags/4x3/';
 
 function openLangModal() {
     const modal = $('langModal');
@@ -409,8 +416,16 @@ function populateLangModalList() {
     const list = $('langList');
     const current = window._langCode || 'en_US';
     list.innerHTML = LANGUAGES.map(l =>
-        `<div class="modal-lang-item${l.code === current ? ' active' : ''}" data-code="${l.code}" onclick="selectLangFromModal('${l.code}')" role="option" aria-selected="${l.code === current}" tabindex="0"><span class="lang-name">${escHtml(l.native)}</span><span class="lang-code">${escHtml(l.code)}</span></div>`
+        `<div class="modal-lang-item${l.code === current ? ' active' : ''}" data-code="${l.code}" onclick="selectLangFromModal('${l.code}')" role="option" aria-selected="${l.code === current}" tabindex="0"><img class="lang-flag" src="${FLAG_BASE}${l.flag}.svg" alt="${l.flag}" loading="lazy" width="20" height="15"><span class="lang-name">${escHtml(l.native)}</span><span class="lang-native">${escHtml(l.name)}</span><span class="lang-code">${escHtml(l.code)}</span></div>`
     ).join('');
+}
+
+function updateLangBtn() {
+    const btn = $('langBtn');
+    const cur = window._langCode || 'en_US';
+    const lang = LANGUAGES.find(l => l.code === cur);
+    if (lang) btn.innerHTML = `<img class="lang-flag" src="${FLAG_BASE}${lang.flag}.svg" alt="${lang.flag}" width="20" height="15">`;
+    else btn.innerHTML = '<span class="material-symbols-outlined">translate</span>';
 }
 
 function filterLanguages() {
