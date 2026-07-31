@@ -122,9 +122,30 @@ function switchPanel(name) {
         }
     });
     log('action', `Switched to ${name} panel`);
+    closeMobileNav();
 }
 
+function toggleMobileNav() {
+    const sb = $('sidebar'), ov = $('navOverlay');
+    const open = sb.classList.toggle('nav-open');
+    ov.classList.toggle('nav-open', open);
+    const icon = $('menuBtn')?.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = open ? 'close' : 'menu';
+}
+
+function closeMobileNav() {
+    $('sidebar').classList.remove('nav-open');
+    $('navOverlay').classList.remove('nav-open');
+    const icon = $('menuBtn')?.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = 'menu';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMobileNav();
+});
+
 function toggleSidebar() {
+    if (window.matchMedia('(max-width: 768px)').matches) { toggleMobileNav(); return; }
     const sb = $('sidebar');
     sb.classList.toggle('expanded');
     $('sidebarToggleIcon').textContent = sb.classList.contains('expanded') ? 'menu' : 'menu_open';

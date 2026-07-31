@@ -17,6 +17,7 @@
     <!-- TOP BAR -->
     <header class="topbar" id="topbar">
         <div class="topbar-left">
+            <button class="topbar-btn topbar-menu-btn" id="menuBtn" onclick="toggleMobileNav()" title="Menu" aria-label="Menu"><span class="material-symbols-outlined">menu</span></button>
             <span class="material-symbols-outlined topbar-icon">mobile_code</span>
             <div class="topbar-title-group">
                 <span class="topbar-title">VSCode Modelator</span>
@@ -61,6 +62,8 @@
             </div>
         </div>
     </nav>
+    <!-- NAV BACKDROP (mobile drawer) -->
+    <div class="nav-overlay" id="navOverlay" onclick="closeMobileNav()" aria-hidden="true"></div>
     <!-- CONTENT AREA -->
     <div class="content-area" id="contentArea">
         <!-- HOME PANEL -->
