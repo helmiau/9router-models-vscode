@@ -227,14 +227,26 @@
                 <button class="modal-close-btn" onclick="closeResetModal()" aria-label="Close"><span class="material-symbols-outlined">close</span></button>
             </div>
             <div class="modal-actions">
-                <button class="reset-option reset-option-update" onclick="updateWebLibs()">
-                    <span class="material-symbols-outlined reset-option-icon">cloud_download</span>
-                    <span class="reset-option-text"><strong data-i18n="reset.update_lib">Update library web</strong><small data-i18n="reset.update_lib_desc">Re-fetch Ace &amp; web libraries. Your data stays.</small></span>
+                <button class="reset-option reset-option-update" type="button" data-state="idle" onclick="updateWebLibs(this)">
+                    <span class="reset-option-icon">
+                        <span class="reset-option-glyph material-symbols-outlined">cloud_download</span>
+                        <span class="reset-option-check material-symbols-outlined">check</span>
+                        <span class="reset-option-spinner" aria-hidden="true"></span>
+                    </span>
+                    <span class="reset-option-text"><strong data-i18n="reset.update_lib">Update</strong></span>
                 </button>
-                <button class="reset-option reset-option-danger" onclick="cleanAllCache()">
-                    <span class="material-symbols-outlined reset-option-icon">delete_forever</span>
-                    <span class="reset-option-text"><strong data-i18n="reset.clean_all">Full clean cache web</strong><small data-i18n="reset.clean_all_desc">Wipe all saved endpoints, data &amp; web cache.</small></span>
+                <button class="reset-option reset-option-danger" type="button" data-state="idle" onclick="cleanAllCache(this)">
+                    <span class="reset-option-icon">
+                        <span class="reset-option-glyph material-symbols-outlined">delete_forever</span>
+                        <span class="reset-option-check material-symbols-outlined">check</span>
+                        <span class="reset-option-spinner" aria-hidden="true"></span>
+                    </span>
+                    <span class="reset-option-text"><strong data-i18n="reset.clean_all">Clean</strong></span>
                 </button>
+            </div>
+            <div class="reset-hint">
+                <div class="reset-hint-row"><span class="reset-hint-dot update"></span><span data-i18n="reset.update_lib_desc">Re-fetch Ace &amp; web libraries. Your data stays.</span></div>
+                <div class="reset-hint-row"><span class="reset-hint-dot danger"></span><span data-i18n="reset.clean_all_desc">Wipe all saved endpoints, data &amp; web cache.</span></div>
             </div>
         </div>
     </div>

@@ -81,7 +81,12 @@ function animateIcon(el, animClass) {
     const icon = el?.querySelector?.('.material-symbols-outlined') || el;
     if (!icon || icon.classList.contains(animClass)) return;
     icon.classList.add(animClass);
-    icon.addEventListener('animationend', () => icon.classList.remove(animClass), { once: true });
+    // Cleanup via animationend + fallback timer — animationend never fires when
+    // the element is hidden or animations are suppressed (Firefox reduced-motion),
+    // which would leave the class stuck and kill the next trigger.
+    const done = () => icon.classList.remove(animClass);
+    icon.addEventListener('animationend', done, { once: true });
+    setTimeout(done, 700);
 }
 
 function clearLog() {
@@ -168,21 +173,40 @@ function _onResetModalKey(e) {
 
 function _wipeWebCache() {
     if ('caches' in window) {
-        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(() => {});
+        return caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
     }
+    return Promise.resolve();
+}
+
+/* Drive a reset-option button through loading → success/error states */
+function _runResetAction(btn, work) {
+    if (!btn || btn.dataset.state === 'loading') return;
+    btn.dataset.state = 'loading';
+    btn.disabled = true;
+    Promise.resolve().then(work).then(() => {
+        btn.dataset.state = 'success';
+    }).catch(() => {
+        btn.dataset.state = 'error';
+        btn.disabled = false;
+        setTimeout(() => { btn.dataset.state = 'idle'; }, 2500);
+    });
 }
 
 /* Option 1: update web libraries — clear web cache, keep user data */
-function updateWebLibs() {
-    _wipeWebCache();
-    location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+function updateWebLibs(btn) {
+    _runResetAction(btn, () => {
+        _wipeWebCache();
+        location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+    });
 }
 
 /* Option 2: full clean — wipe localStorage + web cache */
-function cleanAllCache() {
-    try { localStorage.clear(); } catch (e) {}
-    _wipeWebCache();
-    location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+function cleanAllCache(btn) {
+    _runResetAction(btn, () => {
+        try { localStorage.clear(); } catch (e) {}
+        _wipeWebCache();
+        location.replace(location.pathname + '?v=' + Date.now() + location.hash);
+    });
 }
 
 function toggleSidebar() {
@@ -833,12 +857,15 @@ function removeEndpoint(id) {
         row.style.transition = 'opacity 200ms ease, transform 200ms ease';
         row.style.opacity = '0';
         row.style.transform = 'scale(0.95)';
-        row.addEventListener('transitionend', () => {
+        const onEnd = () => {
+            clearTimeout(fb);
             row.remove();
             saveEndpoints();
             log('action', t('log.removed_endpoint', {id: id}));
             renumberEndpoints();
-        }, { once: true });
+        };
+        row.addEventListener('transitionend', onEnd, { once: true });
+        const fb = setTimeout(onEnd, 400); // fallback: transitionend may not fire (reduced motion / killed transition)
     }
 }
 
@@ -1318,7 +1345,7 @@ function clearCache() {
     lastResult = null;
     setStatus(t('status.cache_cleared'), 'info');
     log('action', t('log.cache_cleared'));
-    setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) { s.classList.add('status-exit'); s.addEventListener('animationend', () => { s.className = 'status'; s.classList.remove('status-exit'); }, { once: true }); } }, 2000);
+    setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) { s.classList.add('status-exit'); const done = () => { s.className = 'status'; s.classList.remove('status-exit'); }; s.addEventListener('animationend', done, { once: true }); setTimeout(done, 400); } }, 2000);
 }
 
 // --- Fetch single endpoint ---
