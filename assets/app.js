@@ -1625,6 +1625,83 @@ async function copyToClipboard() {
     } catch { setStatus(t('status.copy_failed'), 'err'); log('error', t('log.copy_failed')); showToast('err', t('status.copy_failed')); }
 }
 
+// --- Install to VS Code (via relay) ---
+// Pipeline: connect relay → fetch (if localhost) → generate → copy to default/custom dir.
+async function installToVSCode(btn) {
+    if (btn.dataset.state === 'loading') return;
+    const base = isAppMode ? '' : `http://127.0.0.1:${HTTP_PROXY_PORT}`;
+
+    // 1. Relay must be reachable (same-origin in app mode, else CORS probe)
+    let relayOk = isAppMode;
+    if (!relayOk) {
+        try {
+            const r = await fetch(base + '/api/config');
+            relayOk = r.ok && (await r.json()).app_mode;
+        } catch {}
+    }
+    if (!relayOk) {
+        const cmd = navigator.platform.toLowerCase().includes('win') ? 'scripts\\bridge.bat' : 'scripts/bridge.sh';
+        showToast('err', 'Relay not running — start ' + cmd);
+        log('error', 'Relay not reachable. Start: ' + cmd);
+        setStatus('Relay not running — start ' + cmd, 'err');
+        return;
+    }
+
+    // 2. Ensure generated JSON exists (fetch if localhost when empty)
+    let json = aceEditor ? aceEditor.getValue().trim() : '';
+    if (!json) {
+        log('action', 'No generated JSON yet — fetching endpoints first');
+        await runFetchAll();
+        json = aceEditor ? aceEditor.getValue().trim() : '';
+    }
+    if (!json) { showToast('err', 'No generated JSON to install'); return; }
+    let parsed;
+    try { parsed = JSON.parse(json); } catch { showToast('err', 'Invalid JSON in editor'); return; }
+    if (!Array.isArray(parsed)) { showToast('err', 'Generated JSON must be an array of providers'); return; }
+
+    // 3. Ask target: empty = default VS Code user dir, else custom path
+    const row = $('installTargetRow');
+    row.dataset.json = json;
+    row.classList.remove('hidden');
+    $('installTarget').focus();
+    log('action', 'Choose target directory (empty = default) and confirm');
+}
+
+async function doInstall() {
+    const btn = $('installBtn');
+    if (btn.dataset.state === 'loading') return;
+    const row = $('installTargetRow');
+    const json = row.dataset.json || (aceEditor ? aceEditor.getValue().trim() : '');
+    row.classList.add('hidden');
+    if (!json) return;
+    const target = $('installTarget').value.trim();
+    const base = isAppMode ? '' : `http://127.0.0.1:${HTTP_PROXY_PORT}`;
+
+    btn.dataset.state = 'loading';
+    btn.disabled = true;
+    try {
+        const resp = await fetch(base + '/api/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ raw: JSON.parse(json), target: target || undefined })
+        });
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok || !result.ok) throw new Error(result.error || `HTTP ${resp.status}`);
+        const dest = result.backup ? `${result.target} (backup: ${result.backup})` : result.target;
+        setStatus(`Installed ${result.models} models → ${dest}`, 'ok');
+        log('success', `Installed ${result.models} models → ${result.target}`);
+        showToast('ok', `Installed ${result.models} models → ${result.target}`);
+        btn.dataset.state = 'success';
+        setTimeout(() => { btn.dataset.state = 'idle'; btn.disabled = false; }, 2500);
+    } catch (e) {
+        btn.dataset.state = 'error';
+        btn.disabled = false;
+        log('error', 'Install failed: ' + (e.message || e));
+        showToast('err', 'Install failed: ' + (e.message || e));
+        setTimeout(() => { btn.dataset.state = 'idle'; }, 2500);
+    }
+}
+
 // --- Download scripts ---
 
 const SCRIPT_MODES = [

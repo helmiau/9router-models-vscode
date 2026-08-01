@@ -821,6 +821,10 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
 .add-endpoint-btn:hover { border-color: var(--color-blue) !important; color: var(--color-blue); background: var(--color-blue-muted); opacity: 1; }
 .output-row { margin-bottom: var(--spacing-2); margin-top: var(--spacing-1); }
 .output-row .field { margin-bottom: 0; }
+.install-target-row { display: flex; gap: var(--spacing-2); margin-top: var(--spacing-2); }
+.install-target-row input { flex: 1; min-width: 0; height: var(--size-element-md); padding: 0 var(--spacing-3); font-family: inherit; font-size: 0.875rem; color: var(--color-text-primary); background: var(--color-bg-card); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-inner); }
+.install-target-row input:focus { outline: none; border-color: var(--color-blue); }
+.install-target-row .btn-secondary { flex: 0 0 auto; padding: 0 var(--spacing-4); white-space: nowrap; }
 
 .howto-hint {
     margin-top: var(--spacing-3);

@@ -17,6 +17,8 @@ Usage:
 """
 import asyncio
 import json
+import os
+import shutil
 import sys
 import argparse
 import urllib.request
@@ -38,6 +40,21 @@ DEFAULT_PORT = 9876
 DEFAULT_HOST = "127.0.0.1"
 OUTPUT_PORT = DEFAULT_PORT
 API_FILE = "api.txt"
+MODEL_FILE = "chatLanguageModels.json"
+
+
+def default_vscode_user_dir():
+    """Default VS Code user dir per OS (customisable via VSCODE_USER_DIR)."""
+    env = os.environ.get("VSCODE_USER_DIR")
+    if env:
+        return Path(env)
+    home = Path.home()
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+        return base / "Code" / "User"
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / "Code" / "User"
+    return home / ".config" / "Code" / "User"
 
 def fetch_models(url, token):
     """Fetch models from a given URL with authentication token"""
@@ -205,6 +222,55 @@ class AppServerHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(e)})
             return
 
+        if parsed.path == "/api/install":
+            # Install chatLanguageModels.json: web sends generated JSON (raw),
+            # server writes it to default VS Code user dir or a custom target.
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length else b"{}"
+            try:
+                data = json.loads(body)
+            except json.JSONDecodeError:
+                self._send_json(400, {"error": "Invalid JSON body"})
+                return
+
+            raw = data.get("raw")
+            target = (data.get("target") or "").strip()
+            api_url = (data.get("api_url") or self.api_url or "").strip()
+            key = data.get("key") or self.api_key or ""
+
+            # Optional server-side fetch (raw not sent by web)
+            if not raw:
+                if not api_url:
+                    self._send_json(400, {"error": "raw or api_url required"})
+                    return
+                result = fetch_models(api_url.rstrip("/") + "/v1/models", key)
+                if "error" in result:
+                    self._send_json(400, {"error": result["error"]})
+                    return
+                raw = result["data"]
+
+            if not isinstance(raw, list):
+                self._send_json(400, {"error": "raw must be an array of providers"})
+                return
+
+            target_dir = Path(target).expanduser() if target else default_vscode_user_dir()
+            target_file = target_dir / MODEL_FILE
+            backup = None
+            if target_file.exists():
+                backup = str(target_file.with_suffix(".json.bak"))
+                shutil.copy2(target_file, backup)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target_file.write_text(json.dumps(raw, indent=4), encoding="utf-8")
+            count = sum(len(p.get("models", [])) for p in raw)
+            print(f"  [APP] Installed {MODEL_FILE} -> {target_file} ({count} models)")
+            self._send_json(200, {
+                "ok": True,
+                "target": str(target_file),
+                "backup": backup,
+                "models": count,
+            })
+            return
+
         self._send_json(405, {"error": "Method not allowed"})
 
     def _serve_static(self, path):
@@ -283,6 +349,9 @@ async def run_http_server_async(host, port, handler_class, label):
 
 
 async def main():
+    # Unicode banner must survive non-UTF-8 stdio (PowerShell jobs, cp1252 shells)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="9Router Localhost Relay")
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help=f"Bind address (default: {DEFAULT_HOST})")
     parser.add_argument("--port", type=int, default=OUTPUT_PORT, help=f"WebSocket port (default: {OUTPUT_PORT})")

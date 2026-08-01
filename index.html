@@ -95,6 +95,11 @@
                     </div>
                 </div>
                 <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
+                <button id="installBtn" onclick="installToVSCode(this)"><span class="material-symbols-outlined btn-icon">save</span> Install to VS Code</button>
+                <div id="installTargetRow" class="install-target-row hidden">
+                    <input type="text" id="installTarget" placeholder="Target directory (empty = default VS Code User dir)" onkeydown="if(event.key==='Enter')doInstall()">
+                    <button type="button" id="installGoBtn" class="btn-secondary" onclick="doInstall()"><span class="material-symbols-outlined btn-icon">save</span> Install</button>
+                </div>
                 <div id="corsHint" class="hint-box cors-hint hidden">
                     <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>                    <strong>✅ Best solution — run app server (same-origin, no CORS):</strong><br>
                     <code style="display:block;margin:6px 0;padding:6px 10px;background:var(--color-bg-muted);border-radius:6px">python scripts/localhost_relay.py --app --api-url http://localhost:20128</code>
