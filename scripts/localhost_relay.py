@@ -43,18 +43,19 @@ API_FILE = "api.txt"
 MODEL_FILE = "chatLanguageModels.json"
 
 
-def default_vscode_user_dir():
-    """Default VS Code user dir per OS (customisable via VSCODE_USER_DIR)."""
+def default_vscode_user_dir(os_name=None):
+    """Default VS Code user dir per OS (customisable via VSCODE_USER_DIR / os_name override)."""
     env = os.environ.get("VSCODE_USER_DIR")
     if env:
         return Path(env)
     home = Path.home()
-    if sys.platform == "win32":
+    plat = (os_name or "").lower() or sys.platform
+    if plat in ("win32", "windows"):
         base = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
         return base / "Code" / "User"
-    if sys.platform == "darwin":
+    if plat in ("darwin", "macos"):
         return home / "Library" / "Application Support" / "Code" / "User"
-    return home / ".config" / "Code" / "User"
+    return home / ".config" / "Code" / "User"  # linux + any other OS
 
 def fetch_models(url, token):
     """Fetch models from a given URL with authentication token"""
@@ -235,6 +236,14 @@ class AppServerHandler(BaseHTTPRequestHandler):
 
             raw = data.get("raw")
             target = (data.get("target") or "").strip()
+            filename = (data.get("filename") or "").strip() or MODEL_FILE
+            if (
+                "\\" in filename or "/" in filename or ":" in filename
+                or filename in (".", "..") or Path(filename).name != filename
+            ):
+                self._send_json(400, {"error": "filename must be a plain file name"})
+                return
+            os_name = (data.get("os") or "").strip().lower() or None
             api_url = (data.get("api_url") or self.api_url or "").strip()
             key = data.get("key") or self.api_key or ""
 
@@ -253,8 +262,8 @@ class AppServerHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "raw must be an array of providers"})
                 return
 
-            target_dir = Path(target).expanduser() if target else default_vscode_user_dir()
-            target_file = target_dir / MODEL_FILE
+            target_dir = Path(target).expanduser() if target else default_vscode_user_dir(os_name)
+            target_file = target_dir / filename
             backup = None
             if target_file.exists():
                 backup = str(target_file.with_suffix(".json.bak"))

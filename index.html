@@ -86,20 +86,8 @@
                     <div class="endpoint-list" id="endpointList">
                         <!-- Endpoint rows injected by JS -->
                     </div>
-                    <button class="add-endpoint-btn" onclick="addEndpoint()" type="button"><span class="material-symbols-outlined btn-icon">add</span> Add Endpoint</button>
                 </div>
-                <div class="row output-row">
-                    <div class="field">
-                        <label for="outputFile"><span class="material-symbols-outlined label-icon">edit_note</span> Output File Name</label>
-                        <input type="text" id="outputFile" value="chatLanguageModels.json">
-                    </div>
-                </div>
-                <button id="fetchBtn" onclick="runFetchAll()"><span class="material-symbols-outlined btn-icon">bolt</span> Fetch All & Merge</button>
-                <button id="installBtn" onclick="installToVSCode(this)"><span class="material-symbols-outlined btn-icon">save</span> Install to VS Code</button>
-                <div id="installTargetRow" class="install-target-row hidden">
-                    <input type="text" id="installTarget" placeholder="Target directory (empty = default VS Code User dir)" onkeydown="if(event.key==='Enter')doInstall()">
-                    <button type="button" id="installGoBtn" class="btn-secondary" onclick="doInstall()"><span class="material-symbols-outlined btn-icon">save</span> Install</button>
-                </div>
+
                 <div id="corsHint" class="hint-box cors-hint hidden">
                     <strong>🔒 Mixed content blocked?</strong><br>Browser from <code>https://</code> page cannot fetch <code>http://localhost</code>.<br><br>                    <strong>✅ Best solution — run app server (same-origin, no CORS):</strong><br>
                     <code style="display:block;margin:6px 0;padding:6px 10px;background:var(--color-bg-muted);border-radius:6px">python scripts/localhost_relay.py --app --api-url http://localhost:20128</code>
@@ -253,6 +241,54 @@
                 <div class="reset-hint-row"><span class="reset-hint-dot update"></span><span data-i18n="reset.update_lib_desc">Re-fetch Ace &amp; web libraries. Your data stays.</span></div>
                 <div class="reset-hint-row"><span class="reset-hint-dot danger"></span><span data-i18n="reset.clean_all_desc">Wipe all saved endpoints, data &amp; web cache.</span></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Pipeline bar (sticky bottom): add endpoint · fetch → merge → generate → install + install options -->
+    <div class="pipebar" id="pipebar">
+        <div class="pipebar-fields hidden" id="pipebarFields">
+            <label class="pipe-field">
+                <span class="pipe-field-label" data-i18n="pipe.output_label">Output file name</span>
+                <input type="text" id="pipeOutputFile" value="chatLanguageModels.json" spellcheck="false" autocomplete="off">
+            </label>
+            <label class="pipe-field pipe-field-grow">
+                <span class="pipe-field-label" data-i18n="pipe.target_label">Install location</span>
+                <input type="text" id="pipeInstallTarget" data-i18n-placeholder="pipe.target_placeholder" placeholder="Empty = default VS Code User dir" onkeydown="if(event.key==='Enter')pipeInstall()" spellcheck="false" autocomplete="off">
+            </label>
+            <label class="pipe-field">
+                <span class="pipe-field-label" data-i18n="pipe.os_label">OS</span>
+                <select id="pipeOs" onchange="pipeOsChanged()">
+                    <option value="auto" data-i18n="pipe.os_auto">Auto</option>
+                    <option value="windows" data-i18n="pipe.os_windows">Windows</option>
+                    <option value="macos" data-i18n="pipe.os_macos">macOS</option>
+                    <option value="linux" data-i18n="pipe.os_linux">Linux</option>
+                </select>
+            </label>
+        </div>
+        <div class="pipebar-main" role="group" aria-label="Pipeline actions">
+            <button type="button" class="pipe-icon-btn" id="pipeCollapse" aria-expanded="true" aria-controls="pipebar" onclick="togglePipeBar()" data-i18n-title="pipe.hide" title="Hide">
+                <span class="material-symbols-outlined">keyboard_double_arrow_down</span>
+            </button>
+            <button type="button" class="pipe-btn pipe-btn-accent" id="pipeAddBtn" onclick="switchPanel('form');addEndpoint()" data-i18n-title="pipe.add" title="Add Endpoint">
+                <span class="material-symbols-outlined pipe-glyph">add</span>
+                <span class="pipe-text" data-i18n="pipe.add">Add Endpoint</span>
+            </button>
+            <button type="button" class="pipe-btn pipe-btn-accent" id="pipeGenerateBtn" data-state="idle" onclick="pipeGenerate(this)" data-i18n-title="pipe.generate" title="Generate">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">auto_awesome</span><span class="material-symbols-outlined pipe-check">check</span><span class="pipe-spinner" aria-hidden="true"></span></span>
+                <span class="pipe-text" data-i18n="pipe.generate">Generate</span>
+            </button>
+            <button type="button" class="pipe-btn" id="pipeInstallBtn" data-state="idle" onclick="pipeInstall(this)" data-i18n-title="pipe.install" title="Install">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">save</span><span class="material-symbols-outlined pipe-check">check</span><span class="pipe-spinner" aria-hidden="true"></span></span>
+                <span class="pipe-text" data-i18n="pipe.install">Install</span>
+            </button>
+            <button type="button" class="pipe-icon-btn" id="pipeFieldsToggle" aria-expanded="false" aria-controls="pipebarFields" onclick="togglePipeFields()" data-i18n-title="pipe.fields_toggle" title="Output file &amp; install options">
+                <span class="material-symbols-outlined">tune</span>
+            </button>
+        </div>
+        <div class="pipebar-handle" id="pipebarHandle">
+            <button type="button" class="pipe-icon-btn" onclick="togglePipeBar(false)" data-i18n-title="pipe.show" title="Show">
+                <span class="material-symbols-outlined">keyboard_double_arrow_up</span>
+            </button>
         </div>
     </div>
 

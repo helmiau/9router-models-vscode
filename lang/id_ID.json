@@ -17,6 +17,7 @@
   "reset.update_lib_desc": "Ambil ulang library web (Ace & lainnya). Data tetap tersimpan.",
   "reset.clean_all": "Bersihkan",
   "reset.clean_all_desc": "Hapus semua endpoint, data & cache web.",
+  "pipe.add": "Tambah Endpoint", "pipe.fetch": "Ambil", "pipe.merge": "Gabung", "pipe.generate": "Buat", "pipe.install": "Pasang", "pipe.fields_toggle": "Opsi file output & pemasangan", "pipe.hide": "Sembunyikan", "pipe.show": "Tampilkan", "pipe.output_label": "Nama file output", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "Lokasi pemasangan", "pipe.target_placeholder": "Kosongkan = direktori default VS Code User", "pipe.os_label": "OS", "pipe.os_auto": "Otomatis", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "Otomatis (dideteksi server)", "pipe.os_placeholder_windows": "C:\\Users\\<kamu>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
   "topbar.refresh": "Muat ulang & bersihkan cache",
   "sidebar.collapse": "Ciutkan",
   "sidebar.title.home": "Beranda",

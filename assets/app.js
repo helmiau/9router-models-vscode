@@ -10,7 +10,6 @@ const EP_CACHE_KEY = '9router_endpoints';
 let logEntries = [];
 let editMode = false;
 let currentView = 'tree'; // 'json' | 'tree'
-let endpointIdCounter = 0;
 let treeExpanded = {};
 let isAppMode = false;
 let appModeApiUrl = '';
@@ -178,17 +177,20 @@ function _wipeWebCache() {
     return Promise.resolve();
 }
 
-/* Drive a reset-option button through loading → success/error states */
+/* Drive a reset-option button through loading → success/error states. Returns promise (resolves true on success). */
 function _runResetAction(btn, work) {
-    if (!btn || btn.dataset.state === 'loading') return;
+    if (!btn || btn.dataset.state === 'loading') return Promise.resolve(false);
     btn.dataset.state = 'loading';
     btn.disabled = true;
-    Promise.resolve().then(work).then(() => {
+    return Promise.resolve().then(work).then(() => {
         btn.dataset.state = 'success';
+        setTimeout(() => { btn.dataset.state = 'idle'; btn.disabled = false; }, 2500);
+        return true;
     }).catch(() => {
         btn.dataset.state = 'error';
         btn.disabled = false;
         setTimeout(() => { btn.dataset.state = 'idle'; }, 2500);
+        return false;
     });
 }
 
@@ -487,10 +489,12 @@ window._onLangChange = function () {
     initAboutPanel();
     updateCurlCommand();
     showCacheBar();
-    // Recreate endpoints to pick up new language
+    // Re-create endpoints to pick up new language
     const list = $('endpointList');
-    if (list) { list.innerHTML = ''; endpointIdCounter = 0; }
+    if (list) { list.innerHTML = ''; }
     loadEndpoints();
+    // Refresh pipe bar OS placeholder
+    if (typeof pipeOsChanged === 'function') pipeOsChanged();
 };
 
 function switchLang(code) {
@@ -719,9 +723,16 @@ function saveEndpoints() {
     updateCurlCommand();
 }
 
+function nextEndpointId() {
+    const used = new Set();
+    $('endpointList').querySelectorAll('.endpoint-row').forEach(r => used.add(parseInt(r.dataset.id, 10)));
+    let id = 1;
+    while (used.has(id)) id++;
+    return id;
+}
+
 function addEndpoint(name, url, key, secret, apiType, source, fetchUrl) {
-    endpointIdCounter++;
-    const id = endpointIdCounter;
+    const id = nextEndpointId();
     const at = apiType || 'chat-completions';
     const src = source || 'url';
     const row = document.createElement('div');
@@ -862,19 +873,10 @@ function removeEndpoint(id) {
             row.remove();
             saveEndpoints();
             log('action', t('log.removed_endpoint', {id: id}));
-            renumberEndpoints();
         };
         row.addEventListener('transitionend', onEnd, { once: true });
         const fb = setTimeout(onEnd, 400); // fallback: transitionend may not fire (reduced motion / killed transition)
     }
-}
-
-function renumberEndpoints() {
-    const rows = $('endpointList').querySelectorAll('.endpoint-row');
-    rows.forEach((row, i) => {
-        const num = i + 1;
-        row.querySelector('.endpoint-row-num').innerHTML = `<span class="material-symbols-outlined">dns</span> ${t('endpoint.header_num', {num: num})}`;
-    });
 }
 
 function setEndpointStatus(id, type, msg) {
@@ -1506,93 +1508,113 @@ async function fetchSingleEndpoint(id) {
     return provider;
 }
 
-// --- Fetch all endpoints ---
+// --- Pipeline bar: fetch → merge → generate → install ---
+// ponytail: state vars stay fabRaw/mergedRaw (internal only) — rename to pipe* when next touched
 
-async function runFetchAll() {
-    const btn = $('fetchBtn');
-    const rows = $('endpointList').querySelectorAll('.endpoint-row');
-    if (rows.length === 0) { setStatus(t('status.add_endpoint_needed'), 'err'); log('error', t('log.no_endpoints')); return; }
+let fabRaw = [];        // [{ name, key, modelsUrl, raw }] per endpoint
+let mergedRaw = null;   // merged pseudo-raw { object:'list', data:[...] }
 
-    // Validate all
-    for (let i = 0; i < rows.length; i++) {
-        const source = rows[i].querySelector('.ep-source-combo')?.dataset?.source || 'url';
-        if (source === 'url') {
-            const url = rows[i].querySelector('.ep-url')?.value?.trim();
-            const key = rows[i].querySelector('.ep-key')?.value?.trim();
-            if (!url || !key) {
-                setStatus(t('endpoint.url_key_required', {num: i + 1}), 'err');
-                log('error', t('endpoint.url_key_required_log', {num: i + 1}));
-                return;
-            }
-        } else {
-            const rawText = rows[i].querySelector('.ep-paste-area')?.value?.trim();
-            if (!rawText) {
-                setStatus(t('status.validation_title', { num: i + 1, msg: 'Paste JSON or upload a file.' }), 'err');
-                log('error', t('log.no_json_provided', { i: i + 1 }));
-                return;
-            }
-        }
-        // Secret API Key is optional — auto-generated if left empty
+/* Network fetch core (URL source): app-mode proxy → WebSocket relay → HTTP proxy → direct */
+async function fetchRawFromUrl(url, key, id) {
+    const endpoint = buildEndpoint(url);
+    if (isAppMode) {
+        const proxyUrl = '/proxy?url=' + encodeURIComponent(endpoint);
+        const resp = await fetch(proxyUrl, { headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' } });
+        const result = await resp.json();
+        if (result && result.success) return result.data;
+        throw new Error(result?.error || 'Proxy fetch failed');
     }
+    if (isLocalhost(url) && (location.protocol === 'https:' || location.hostname.includes('github.io'))) {
+        const wsResult = await fetchViaWebSocket(endpoint, key);
+        if (wsResult && wsResult.success) return wsResult.data;
+        throw new Error('HTTPS→localhost blocked, relay unavailable');
+    }
+    if (isLocalhost(url) && location.protocol === 'http:') {
+        const wsResult = await fetchViaWebSocket(endpoint, key);
+        if (wsResult && wsResult.success) return wsResult.data;
+        const proxyResult = await fetchViaHttpProxy(endpoint, key);
+        if (proxyResult && proxyResult.success) return proxyResult.data;
+        throw new Error('CORS blocked — use relay or paste/upload');
+    }
+    const resp = await fetch(endpoint, { headers: { 'Authorization': 'Bearer ' + key, 'Accept': 'application/json' } });
+    const ct = (resp.headers.get('content-type') || '').toLowerCase();
+    const body = await resp.text().catch(() => '');
+    if (ct.includes('text/html') || body.trimStart().startsWith('<!DOCTYPE') || body.trimStart().startsWith('<html')) {
+        const titleMatch = body.match(/<title[^>]*>([^<]+)<\/title>/i);
+        throw new Error(`HTTP ${resp.status}: ${(titleMatch && titleMatch[1]) || 'Server returned HTML'}`);
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+    let raw;
+    try { raw = JSON.parse(body); } catch { throw new Error('Response is not valid JSON'); }
+    if (raw.object !== 'list') throw new Error(t('endpoint.expected_list'));
+    return raw;
+}
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>' + t('status.fetching');
-    $('editorEmpty').classList.remove('hidden');
-    $('editorContent').classList.add('hidden');
-
-    try {
-        log('action', `Fetching ${rows.length} endpoint(s)...`);
-
-        // Check CORS / mixed-content for any URL sources before fetching
-        let hasMixed = false;
-        let hasCors = false;
-        rows.forEach(row => {
-            const src = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
-            if (src !== 'url') return;
-            const url = row.querySelector('.ep-url')?.value?.trim();
-            if (isMixedContent(url)) hasMixed = true;
-            // http:// origin → localhost:PORT is cross-origin CORS (port mismatch)
-            // Warn user to use file:// or scripts
-            if (location.protocol === 'http:' && isLocalhost(url)) hasCors = true;
-        });
-        if (hasMixed) {
-            $('corsHint').classList.remove('hidden');
-            $('corsHint').innerHTML = t('home.cors_hint') + ' <br><br><strong>Relay:</strong> <code>cd scripts && python localhost_relay.py --http</code>';
-        } else if (hasCors) {
-            $('corsHint').classList.remove('hidden');
-            $('corsHint').innerHTML = '<strong>🔒 CORS blocked?</strong><br>Page via <code>http://</code> cannot cross-origin fetch even to localhost.<br><br><strong>Options:</strong><br>• Open this page via <code>file://</code> — double-click <code>index.html</code><br>• Use the <code>.bat</code> / <code>.sh</code> / <code>.py</code> scripts from the Scripts tab';
-        } else {
-            $('corsHint').classList.add('hidden');
+/* Generate: fetch all endpoints → merge if ≥2 → convert → editor */
+function pipeGenerate(btn) {
+    return _runResetAction(btn, async () => {
+        const rows = $('endpointList').querySelectorAll('.endpoint-row');
+        if (rows.length === 0) { setStatus(t('status.add_endpoint_needed'), 'err'); log('error', t('log.no_endpoints')); throw new Error(t('status.add_endpoint_needed')); }
+        const collected = [];
+        for (const row of rows) {
+            const id = parseInt(row.dataset.id);
+            const name = row.querySelector('.ep-name')?.value?.trim() || '';
+            const key = row.querySelector('.ep-key')?.value?.trim() || '';
+            const secret = row.querySelector('.ep-secret')?.value?.trim() || '';
+            const apiType = row.querySelector('.ep-apiType-wrap')?.dataset?.value || 'chat-completions';
+            const source = row.querySelector('.ep-source-combo')?.dataset?.source || 'url';
+            const fetchUrl = row.querySelector('.ep-fetchUrl')?.value?.trim() || '';
+            const modelsUrl = extractBaseUrl(fetchUrl || 'http://localhost:20128/v1');
+            let raw;
+            if (source === 'paste' || source === 'upload') {
+                const rawText = row.querySelector('.ep-paste-area')?.value?.trim();
+                if (!rawText) { setEndpointStatus(id, 'err', t(source === 'paste' ? 'status.paste_required' : 'status.upload_required')); throw new Error(t(source === 'paste' ? 'status.paste_required' : 'status.upload_required')); }
+                try { raw = JSON.parse(rawText); } catch { setEndpointStatus(id, 'err', t('endpoint.invalid_json')); throw new Error(t('endpoint.invalid_json')); }
+                if (raw.object !== 'list') { setEndpointStatus(id, 'err', t('endpoint.expected_list')); throw new Error(t('endpoint.expected_list')); }
+            } else {
+                const url = row.querySelector('.ep-url')?.value?.trim() || '';
+                if (!url) { setEndpointStatus(id, 'err', t('status.url_required')); throw new Error(t('status.url_required')); }
+                if (!key) { setEndpointStatus(id, 'err', t('status.key_required')); throw new Error(t('status.key_required')); }
+                setEndpointStatus(id, 'loading', 'Fetching...');
+                log('action', t('log.fetching', { id: id, url: url }));
+                raw = await fetchRawFromUrl(url, key, id);
+            }
+            collected.push({ id, name, key, secret, apiType, modelsUrl, raw });
         }
-
+        fabRaw = collected;
+        mergedRaw = null;
+        if (fabRaw.length >= 2) {
+            const seen = new Set();
+            const data = [];
+            for (const e of fabRaw) {
+                for (const m of (e.raw.data || [])) {
+                    if (m.owned_by === 'combo') continue;
+                    if (seen.has(m.id)) continue;
+                    seen.add(m.id);
+                    data.push(m);
+                }
+            }
+            mergedRaw = { object: 'list', data: data };
+        }
         const allProviders = [];
         let totalModels = 0;
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const rowId = parseInt(row.dataset.id);
-            const provider = await fetchSingleEndpoint(rowId);
-            if (provider) {
+        if (mergedRaw && fabRaw.length >= 2) {
+            const e = fabRaw[0];
+            const { provider } = convertModels(mergedRaw, e.modelsUrl, e.name || '9Router', e.secret || e.key, e.apiType);
+            allProviders.push(provider);
+            totalModels += provider.models.length;
+        } else {
+            for (const e of fabRaw) {
+                const { provider } = convertModels(e.raw, e.modelsUrl, e.name || '9Router', e.secret || e.key, e.apiType);
                 allProviders.push(provider);
                 totalModels += provider.models.length;
             }
         }
-
-        if (allProviders.length === 0) {
-            setStatus(t('status.fetch_failed'), 'err');
-            showToast('err', t('status.fetch_failed'));
-            log('error', t('log.all_failed'));
-        } else {
-            showResult(allProviders, totalModels);
-        }
-    } catch (e) {
-        setStatus(t('status.fetch_error', { msg: e.message }), 'err');
-        showToast('err', e.message);
-        log('error', 'Fetch failed: ' + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined btn-icon">bolt</span> ' + t('home.fetch_all');
-    }
+        if (allProviders.length === 0) throw new Error(t('status.fetch_failed'));
+        showResult(allProviders, totalModels);
+        if (typeof switchPanel === 'function') switchPanel('editor');
+        log('success', t('log.conversion_done', { count: totalModels, providers: allProviders.length }));
+    });
 }
 
 // --- Download / Copy ---
@@ -1602,7 +1624,7 @@ function download() {
     if (!json) { log('warn', 'Nothing to download'); return; }
     const dlBtn = document.querySelector('.scripts-dl-all-btn') || $('downloadBtn');
     if (dlBtn) animateIcon(dlBtn, 'icon-check');
-    const outFile = $('outputFile').value.trim() || 'chatLanguageModels.json';
+    const outFile = $('pipeOutputFile').value.trim() || 'chatLanguageModels.json';
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1626,8 +1648,8 @@ async function copyToClipboard() {
 }
 
 // --- Install to VS Code (via relay) ---
-// Pipeline: connect relay → fetch (if localhost) → generate → copy to default/custom dir.
-async function installToVSCode(btn) {
+// Pipeline: connect relay → generate (if empty) → copy to default/custom dir.
+async function pipeInstall(btn) {
     if (btn.dataset.state === 'loading') return;
     const base = isAppMode ? '' : `http://127.0.0.1:${HTTP_PROXY_PORT}`;
 
@@ -1647,11 +1669,11 @@ async function installToVSCode(btn) {
         return;
     }
 
-    // 2. Ensure generated JSON exists (fetch if localhost when empty)
+    // 2. Ensure generated JSON exists (fetch → generate if empty)
     let json = aceEditor ? aceEditor.getValue().trim() : '';
     if (!json) {
-        log('action', 'No generated JSON yet — fetching endpoints first');
-        await runFetchAll();
+        log('action', 'No generated JSON yet — generating first');
+        await pipeGenerate($('pipeGenerateBtn'));
         json = aceEditor ? aceEditor.getValue().trim() : '';
     }
     if (!json) { showToast('err', 'No generated JSON to install'); return; }
@@ -1659,31 +1681,15 @@ async function installToVSCode(btn) {
     try { parsed = JSON.parse(json); } catch { showToast('err', 'Invalid JSON in editor'); return; }
     if (!Array.isArray(parsed)) { showToast('err', 'Generated JSON must be an array of providers'); return; }
 
-    // 3. Ask target: empty = default VS Code user dir, else custom path
-    const row = $('installTargetRow');
-    row.dataset.json = json;
-    row.classList.remove('hidden');
-    $('installTarget').focus();
-    log('action', 'Choose target directory (empty = default) and confirm');
-}
-
-async function doInstall() {
-    const btn = $('installBtn');
-    if (btn.dataset.state === 'loading') return;
-    const row = $('installTargetRow');
-    const json = row.dataset.json || (aceEditor ? aceEditor.getValue().trim() : '');
-    row.classList.add('hidden');
-    if (!json) return;
-    const target = $('installTarget').value.trim();
-    const base = isAppMode ? '' : `http://127.0.0.1:${HTTP_PROXY_PORT}`;
-
-    btn.dataset.state = 'loading';
-    btn.disabled = true;
-    try {
+    // 3. POST install with current bar options (output file / target dir / OS)
+    return _runResetAction(btn, async () => {
+        const target = $('pipeInstallTarget').value.trim();
+        const filename = $('pipeOutputFile').value.trim() || 'chatLanguageModels.json';
+        const os = $('pipeOs').value;
         const resp = await fetch(base + '/api/install', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ raw: JSON.parse(json), target: target || undefined })
+            body: JSON.stringify({ raw: parsed, target: target || undefined, filename: filename || undefined, os: os === 'auto' ? undefined : os })
         });
         const result = await resp.json().catch(() => ({}));
         if (!resp.ok || !result.ok) throw new Error(result.error || `HTTP ${resp.status}`);
@@ -1691,16 +1697,72 @@ async function doInstall() {
         setStatus(`Installed ${result.models} models → ${dest}`, 'ok');
         log('success', `Installed ${result.models} models → ${result.target}`);
         showToast('ok', `Installed ${result.models} models → ${result.target}`);
-        btn.dataset.state = 'success';
-        setTimeout(() => { btn.dataset.state = 'idle'; btn.disabled = false; }, 2500);
-    } catch (e) {
-        btn.dataset.state = 'error';
-        btn.disabled = false;
-        log('error', 'Install failed: ' + (e.message || e));
-        showToast('err', 'Install failed: ' + (e.message || e));
-        setTimeout(() => { btn.dataset.state = 'idle'; }, 2500);
-    }
+    });
 }
+
+// --- Pipe bar: show/hide + fields (output file / install location / OS) ---
+
+function togglePipeBar(force) {
+    const bar = $('pipebar');
+    if (!bar) return;
+    const collapsed = typeof force === 'boolean' ? force : !bar.classList.contains('collapsed');
+    bar.classList.toggle('collapsed', collapsed);
+    document.body.classList.toggle('pipebar-collapsed', collapsed);
+    const c = $('pipeCollapse');
+    if (c) c.setAttribute('aria-expanded', String(!collapsed));
+    syncPipebarSpace();
+    try {
+        const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
+        localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, collapsed }));
+    } catch {}
+    return collapsed;
+}
+
+function togglePipeFields(force) {
+    const fields = $('pipebarFields');
+    if (!fields) return;
+    const open = typeof force === 'boolean' ? force : fields.classList.contains('hidden');
+    fields.classList.toggle('hidden', !open);
+    const t = $('pipeFieldsToggle');
+    if (t) t.setAttribute('aria-expanded', String(open));
+    syncPipebarSpace();
+    try {
+        const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
+        localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, fields: open }));
+    } catch {}
+    return open;
+}
+
+/* Keep content + toasts clear of the bar: publish its real height on <body>. */
+function syncPipebarSpace() {
+    const bar = $('pipebar');
+    if (bar) document.body.style.setProperty('--pipebar-h', bar.offsetHeight + 'px');
+}
+
+/* Preview default VS Code user dir for the selected OS (server computes the real path). */
+function pipeOsChanged() {
+    const ph = {
+        auto: t('pipe.os_placeholder_auto'),
+        windows: t('pipe.os_placeholder_windows'),
+        macos: t('pipe.os_placeholder_macos'),
+        linux: t('pipe.os_placeholder_linux'),
+    }[$('pipeOs').value] || '';
+    const el = $('pipeInstallTarget');
+    if (el) el.placeholder = ph;
+}
+
+(function initPipeBar() {
+    const bar = $('pipebar');
+    if (!bar) return;
+    try {
+        const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
+        if (s.collapsed) togglePipeBar(true);
+        if (s.fields) togglePipeFields(true);
+    } catch {}
+    pipeOsChanged();
+    syncPipebarSpace();
+    window.addEventListener('resize', syncPipebarSpace);
+})();
 
 // --- Download scripts ---
 
@@ -1875,7 +1937,7 @@ async function downloadScript(file) {
         const apiUrl = firstRow?.querySelector('.ep-url')?.value?.trim() || 'http://localhost:20128/v1/models';
         const apiKey = firstRow?.querySelector('.ep-key')?.value?.trim() || '';
         const secretRef = firstRow?.querySelector('.ep-secret')?.value?.trim() || '';
-        const outputFile = $('outputFile').value.trim() || 'chatLanguageModels.json';
+        const outputFile = $('pipeOutputFile').value.trim() || 'chatLanguageModels.json';
 
         const endpoint = buildEndpoint(apiUrl);
         const base = extractBaseUrl(apiUrl);
@@ -2126,9 +2188,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Init Ace editor
     initAce();
 
-    // Enter key triggers fetch
+    // Enter key triggers fetch (pipeline bar) — skip inside inputs
     document.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey && !$('fetchBtn').disabled) runFetchAll();
+        const fb = $('pipeGenerateBtn');
+        if (e.key === 'Enter' && !e.shiftKey && fb && !fb.disabled &&
+            !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+            pipeGenerate(fb);
+        }
     });
 
     // Restore cache
