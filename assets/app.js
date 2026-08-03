@@ -335,18 +335,31 @@ function toggleEditMode() {
 
 function switchView(view) {
     currentView = view;
-    const treeEl = $('treeView');
+    const wrap = $('treeWrap');
     const aceEl = $('aceEditor');
     const rightBar = $('editorToolbarRight');
     $('btnViewTree').classList.toggle('active', view === 'tree');
     $('btnViewJson').classList.toggle('active', view === 'json');
     if (view === 'tree') {
-        if (treeEl) treeEl.style.display = '';
+        /* code edits made in Ace → re-sync tree from editor content */
+        if (aceEl && !aceEl.classList.contains('hidden') && aceEditor) {
+            try {
+                lastResult = JSON.parse(aceEditor.getValue());
+                renderTreeView(lastResult);
+                updateModelCount();
+                treeSel.clear();
+                updateTreeSelBar();
+                saveCache(aceEditor.getValue());
+            } catch (e) {
+                showToast('warn', t('tree.invalid_json', { msg: e.message }));
+            }
+        }
+        if (wrap) wrap.style.display = 'flex';
         if (aceEl) aceEl.classList.add('hidden');
         if (rightBar) rightBar.style.display = 'none';
-        if (findActive) closeFindBar();
+        closeFindBar();
     } else {
-        if (treeEl) treeEl.style.display = 'none';
+        if (wrap) wrap.style.display = 'none';
         if (aceEl) aceEl.classList.remove('hidden');
         if (rightBar) rightBar.style.display = 'flex';
     }
@@ -375,9 +388,12 @@ function renderTreeView(data) {
         const providerName = provider.name || provider.id || `Provider ${pi + 1}`;
         const models = provider.models || [];
         const isOpen = treeExpanded[tid] !== false; // default open
+        const selCount = models.filter(m => treeSel.has(m)).length;
+        const allSel = models.length > 0 && selCount === models.length;
 
         html += `<div class="tree-node tree-root">`;
         html += `<div class="tree-row">`;
+        html += `<input type="checkbox" class="tree-check" id="tpc_${pi}" ${allSel ? 'checked' : ''} onchange="treeCheckAll(this, ${pi})" title="Select all models">`;
         html += `<span class="tree-toggle ${isOpen ? '' : 'collapsed'}" onclick="treeToggle('${tid}', this)"><span class="material-symbols-outlined">expand_more</span></span>`;
         html += `<span class="tree-icon tree-icon-provider"><span class="material-symbols-outlined">dns</span></span>`;
         html += `<span class="tree-key">${escHtml(providerName)}</span>`;
@@ -422,7 +438,10 @@ function renderTreeView(data) {
             const iconCls = isCombo ? 'tree-icon-combo' : 'tree-icon-model';
             const iconNm = isCombo ? 'auto_awesome' : 'smart_toy';
 
-            html += `<div class="tree-row">`;
+            const isSel = treeSel.has(model);
+
+            html += `<div class="tree-row${isSel ? ' selected' : ''}">`;
+            html += `<input type="checkbox" class="tree-check" id="tmc_${pi}_${mi}" ${isSel ? 'checked' : ''} onchange="treeCheckToggle(this, ${pi}, ${mi})" title="Select model">`;
             html += `<span class="tree-toggle ${mOpenInner ? '' : 'collapsed'}" onclick="treeToggle('${modelTid}', this)"><span class="material-symbols-outlined">expand_more</span></span>`;
             html += `<span class="tree-icon ${iconCls}"><span class="material-symbols-outlined">${iconNm}</span></span>`;
             html += `<span class="tree-key">${escHtml(model.id || model.name || `model_${mi}`)}</span>`;
@@ -440,7 +459,11 @@ function renderTreeView(data) {
                 html += `<span class="tree-toggle-placeholder"></span>`;
                 html += `<span class="tree-key">${escHtml(k)}</span>`;
                 html += `<span class="tree-sep">:</span>`;
-                html += `<span class="${cls}">${escHtml(display)}</span>`;
+                if (Array.isArray(v) || (v !== null && typeof v === 'object')) {
+                    html += `<span class="tree-val-obj" title="${escHtml(JSON.stringify(v)).slice(0, 80)}">${escHtml(String(display).slice(0, 60))}</span>`;
+                } else {
+                    html += `<span class="${cls} tree-editable" data-pi="${pi}" data-mi="${mi}" data-key="${escHtml(k)}" title="Click to edit" onclick="treeEditStart(this)">${escHtml(display)}</span>`;
+                }
                 html += `</div>`;
             });
             html += `</div>`; // model props
@@ -461,6 +484,150 @@ function treeToggle(id, el) {
     node.style.display = visible ? 'none' : 'block';
     el.classList.toggle('collapsed', visible);
     treeExpanded[id] = !visible;
+}
+
+/* --- Tree selection, batch delete / batch edit, inline value editing --- */
+let treeSel = new Set();
+
+function getProviders() { return Array.isArray(lastResult) ? lastResult : (lastResult ? [lastResult] : []); }
+function setProviders(list) { lastResult = Array.isArray(lastResult) ? list : list[0]; }
+
+function treeCheckToggle(cb, pi, mi) {
+    const p = getProviders()[pi];
+    if (!p || !p.models) return;
+    const model = p.models[mi];
+    if (!model) return;
+    cb.checked ? treeSel.add(model) : treeSel.delete(model);
+    const row = cb.closest('.tree-row');
+    if (row) row.classList.toggle('selected', cb.checked);
+    const pc = $('tpc_' + pi);
+    if (pc) {
+        const sel = p.models.filter(m => treeSel.has(m)).length;
+        pc.checked = sel === p.models.length && p.models.length > 0;
+        pc.indeterminate = sel > 0 && sel < p.models.length;
+    }
+    updateTreeSelBar();
+}
+
+function treeCheckAll(cb, pi) {
+    const p = getProviders()[pi];
+    if (!p || !p.models) return;
+    p.models.forEach(m => cb.checked ? treeSel.add(m) : treeSel.delete(m));
+    renderTreeView(lastResult);
+    updateTreeSelBar();
+}
+
+function updateTreeSelBar() {
+    const bar = $('treeSelBar');
+    if (!bar) return;
+    const n = treeSel.size;
+    bar.classList.toggle('hidden', n === 0);
+    const c = $('treeSelCount');
+    if (c) c.textContent = n + ' ' + t('tree.selected');
+    const del = $('treeDeleteBtn');
+    if (del) del.disabled = n === 0;
+}
+
+function deleteSelectedModels() {
+    const n = treeSel.size;
+    if (!n) return;
+    const kept = getProviders().map(p => {
+        if (p.models) p.models = p.models.filter(m => !treeSel.has(m));
+        return p;
+    }).filter(p => !p.models || p.models.length > 0);
+    treeSel.clear();
+    closeBatchPanel();
+    setProviders(kept);
+    syncTreeToEditor();
+    showToast('ok', t('tree.deleted', { n }));
+    log('success', t('tree.deleted', { n }));
+}
+
+function openBatchPanel() {
+    if (!treeSel.size) return;
+    const keys = new Set();
+    getProviders().forEach(p => (p.models || []).forEach(m => { if (treeSel.has(m)) Object.keys(m).forEach(k => keys.add(k)); }));
+    $('treeBatchKeyList').innerHTML = [...keys].map(k => `<option value="${escHtml(k)}">`).join('');
+    $('treeBatchKey').value = '';
+    $('treeBatchValue').value = '';
+    $('treeBatchPanel').classList.remove('hidden');
+    $('treeBatchKey').focus();
+}
+
+function closeBatchPanel() { const el = $('treeBatchPanel'); if (el) el.classList.add('hidden'); }
+
+function applyBatchEdit() {
+    const key = $('treeBatchKey').value.trim();
+    const raw = $('treeBatchValue').value.trim();
+    if (!key) { showToast('warn', t('tree.need_property')); return; }
+    let val;
+    try { val = JSON.parse(raw); } catch { val = raw; }
+    let n = 0;
+    getProviders().forEach(p => (p.models || []).forEach(m => { if (treeSel.has(m)) { m[key] = val; n++; } }));
+    closeBatchPanel();
+    syncTreeToEditor();
+    showToast('ok', t('tree.applied', { key, n }));
+    log('success', t('tree.applied', { key, n }));
+}
+
+function treeEditStart(span) {
+    const pi = +span.dataset.pi, mi = +span.dataset.mi, key = span.dataset.key;
+    const p = getProviders()[pi];
+    if (!p || !p.models) return;
+    const model = p.models[mi];
+    if (!model) return;
+    const cur = model[key];
+    if (cur !== null && typeof cur === 'object') return;
+    const input = document.createElement(cur === true || cur === false ? 'select' : 'input');
+    input.className = 'tree-inline-input';
+    if (input.tagName === 'SELECT') {
+        ['true', 'false'].forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; if (String(cur) === v) o.selected = true; input.appendChild(o); });
+    } else {
+        input.type = cur !== null && typeof cur === 'number' ? 'number' : 'text';
+        input.value = cur === null ? '' : String(cur);
+        if (cur === null) input.placeholder = 'null';
+    }
+    span.replaceWith(input);
+    input.focus();
+    if (input.select) input.select();
+    let done = false;
+    const commit = () => {
+        if (done) return;
+        done = true;
+        let val;
+        if (input.tagName === 'SELECT') val = input.value === 'true';
+        else {
+            const s = input.value.trim();
+            if (s === '') val = null;
+            else if (input.type === 'number') val = Number(s);
+            else { try { val = JSON.parse(s); } catch { val = s; } }
+        }
+        model[key] = val;
+        syncTreeToEditor();
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { done = true; syncTreeToEditor(); }
+    });
+}
+
+function syncTreeToEditor() {
+    const json = JSON.stringify(lastResult, null, '\t');
+    if (aceEditor) aceEditor.setValue(json, -1);
+    saveCache(json);
+    updateModelCount();
+    renderTreeView(lastResult);
+    updateTreeSelBar();
+}
+
+function updateModelCount() {
+    let count = 0;
+    getProviders().forEach(p => count += (p.models || []).length);
+    const el = $('modelCount');
+    if (!el) return;
+    if (count) { el.classList.remove('hidden'); el.textContent = count + ' ' + t('editor.models'); }
+    else el.classList.add('hidden');
 }
 
 // --- Find & Replace ---
@@ -1266,9 +1433,8 @@ function showResult(data, total) {
     ec.classList.remove('crossfade-in');
     void ec.offsetWidth;
     ec.classList.add('crossfade-in');
-    $('modelCount').classList.remove('hidden');
-    $('modelCount').textContent = total + ' ' + t('editor.models');
     renderTreeView(data);
+    updateModelCount();
     if (aceEditor) { aceEditor.setValue(json, -1); aceEditor.clearSelection(); }
     editMode = false;
     if (aceEditor) aceEditor.setReadOnly(true);
@@ -1299,16 +1465,7 @@ function loadCache() {
         renderTreeView(lastResult);
         if (aceEditor) { aceEditor.setValue(cached, -1); aceEditor.clearSelection(); }
         showCacheBar();
-        let count = 0;
-        if (Array.isArray(lastResult)) {
-            lastResult.forEach(p => { count += (p.models || []).length; });
-        } else {
-            count = lastResult[0]?.models?.length || 0;
-        }
-        if (count) {
-            $('modelCount').classList.remove('hidden');
-            $('modelCount').textContent = count + ' ' + t('editor.models');
-        }
+        updateModelCount();
         setStatus(t('status.cache_loaded'), 'info');
         log('info', t('log.cache_loaded', { count: count }));
         setTimeout(() => { const s = $('status'); if (s.classList.contains('info')) s.className = 'status'; }, 2000);

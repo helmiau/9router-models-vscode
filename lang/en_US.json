@@ -18,6 +18,7 @@
   "reset.clean_all": "Clean",
   "reset.clean_all_desc": "Wipe all saved endpoints, data & web cache.",
   "pipe.add": "Add Endpoint", "pipe.fetch": "Fetch", "pipe.merge": "Merge", "pipe.generate": "Generate", "pipe.install": "Install", "pipe.settings": "Settings", "pipe.fields_toggle": "Output file & install options", "pipe.hide": "Hide", "pipe.show": "Show", "pipe.output_label": "Output file name", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "Install location", "pipe.target_placeholder": "Empty = default VS Code User dir", "pipe.os_label": "OS", "pipe.os_auto": "Auto", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "Auto (detected by server)", "pipe.os_placeholder_windows": "C:\\Users\\<you>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
+  "tree.selected": "selected", "tree.batch": "Batch", "tree.delete": "Delete", "tree.batch_title": "Batch edit selected models", "tree.property": "Property name (e.g. temperature)", "tree.value": "Value (true / 0.5 / \"text\")", "tree.apply": "Apply", "tree.cancel": "Cancel", "tree.invalid_json": "Invalid JSON — tree not updated", "tree.need_property": "Property name required", "tree.deleted": "{n} model(s) deleted", "tree.applied": "{key} = value applied to {n} model(s)",
   "topbar.refresh": "Refresh & clear cache",
   "sidebar.collapse": "Collapse",
   "sidebar.title.home": "Home",

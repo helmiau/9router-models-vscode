@@ -146,7 +146,24 @@
                             </div>
                         </div>
                         <div id="aceEditor" class="hidden"></div>
-                        <div class="tree-view" id="treeView"></div>
+                        <div class="tree-wrap" id="treeWrap">
+                            <div class="tree-selbar hidden" id="treeSelBar">
+                                <span class="tree-selbar-count" id="treeSelCount"></span>
+                                <button type="button" class="editor-view-btn" id="treeBatchBtn" onclick="openBatchPanel()" title="Batch edit selected models"><span class="material-symbols-outlined">tune</span><span class="editor-view-label" data-i18n="tree.batch">Batch</span></button>
+                                <button type="button" class="editor-view-btn tree-selbar-del" id="treeDeleteBtn" onclick="deleteSelectedModels()" title="Delete selected models"><span class="material-symbols-outlined">delete</span><span class="editor-view-label" data-i18n="tree.delete">Delete</span></button>
+                            </div>
+                            <div class="tree-batch-panel hidden" id="treeBatchPanel">
+                                <span class="tree-batch-title" data-i18n="tree.batch_title">Batch edit selected models</span>
+                                <input type="text" class="tree-batch-input" id="treeBatchKey" list="treeBatchKeyList" data-i18n-placeholder="tree.property" placeholder="Property name (e.g. temperature)" spellcheck="false" autocomplete="off">
+                                <datalist id="treeBatchKeyList"></datalist>
+                                <input type="text" class="tree-batch-input" id="treeBatchValue" data-i18n-placeholder="tree.value" placeholder="Value (true / 0.5 / &quot;text&quot;)" spellcheck="false" autocomplete="off">
+                                <div class="tree-batch-actions">
+                                    <button type="button" class="panel-btn" onclick="applyBatchEdit()"><span class="material-symbols-outlined">check</span><span data-i18n="tree.apply">Apply</span></button>
+                                    <button type="button" class="panel-btn" onclick="closeBatchPanel()"><span class="material-symbols-outlined">close</span><span data-i18n="tree.cancel">Cancel</span></button>
+                                </div>
+                            </div>
+                            <div class="tree-view" id="treeView"></div>
+                        </div>
                         <div class="editor-cache-bar hidden" id="cacheBar">
                             <span class="material-symbols-outlined cache-bar-icon">cloud_off</span>
                             <span id="cacheInfo">Cached locally</span>

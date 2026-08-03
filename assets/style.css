@@ -1117,6 +1117,25 @@ button:disabled { background: var(--color-accent-muted); border-color: var(--col
     background: var(--color-bg-card);
 }
 .tree-node { padding-left: 16px; }
+/* --- Tree selection, batch edit --- */
+.tree-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.tree-selbar { display: flex; align-items: center; gap: 6px; padding: var(--spacing-1) var(--spacing-3); background: color-mix(in srgb, var(--color-bg-card) 78%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-bottom: 1px solid var(--color-border); font-size: 0.75rem; }
+.tree-selbar-count { flex: 1; font-weight: 600; color: var(--color-blue); }
+.tree-selbar-del { color: var(--color-error) !important; }
+.tree-selbar-del:hover { background: rgba(255, 138, 128, 0.16) !important; color: var(--color-error) !important; }
+.tree-check { width: 14px; height: 14px; accent-color: var(--color-blue); margin: 0; flex-shrink: 0; cursor: pointer; }
+.tree-row.selected { background: color-mix(in srgb, var(--color-blue-muted) 45%, transparent); }
+.tree-row.selected:hover { background: color-mix(in srgb, var(--color-blue-muted) 60%, transparent); }
+.tree-editable { cursor: text; border-bottom: 1px dashed transparent; }
+.tree-editable:hover { border-bottom-color: var(--color-text-secondary); }
+.tree-inline-input { font-family: var(--font-mono); font-size: 0.75rem; background: var(--color-bg-surface); color: var(--color-text-primary); border: 1px solid var(--color-blue); border-radius: 4px; padding: 0 4px; min-width: 100px; max-width: 320px; }
+.tree-val-obj { color: var(--color-text-secondary); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-batch-panel { display: flex; flex-direction: column; gap: 8px; padding: var(--spacing-3); margin: var(--spacing-2) var(--spacing-3); background: var(--color-bg-surface); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-inner); box-shadow: var(--shadow-raise); font-size: 0.75rem; }
+.tree-batch-title { font-weight: 600; color: var(--color-text-primary); }
+.tree-batch-input { height: var(--size-element-md); border-radius: var(--radius-inner); background: var(--color-bg-card); border: 1px solid var(--color-border-emphasized); color: var(--color-text-primary); font-family: var(--font-mono); font-size: 0.75rem; padding: 0 var(--spacing-3); }
+.tree-batch-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.tree-batch-actions .panel-btn { width: auto; }
+.tree-batch-actions .panel-btn .material-symbols-outlined { font-size: 0.85rem; }
 .tree-row {
     display: flex; align-items: center; gap: 4px; padding: 2px 0;
     cursor: default; border-radius: 4px;
