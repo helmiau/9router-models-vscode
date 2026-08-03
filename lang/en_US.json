@@ -73,6 +73,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "Tree",
   "editor.code": "Code",
+  "editor.copy": "Copy",
+  "editor.download": "Download",
   "editor.edit": "Edit",
   "editor.view": "View",
   "editor.find_replace": "Find & Replace",

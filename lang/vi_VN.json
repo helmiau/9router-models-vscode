@@ -72,6 +72,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "Cây",
   "editor.code": "Mã",
+  "editor.copy": "Sao chép",
+  "editor.download": "Tải xuống",
   "editor.edit": "Sửa",
   "editor.view": "Xem",
   "editor.find_replace": "Tìm & Thay thế",

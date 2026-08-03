@@ -124,10 +124,6 @@
                         <span class="panel-header-title">chatLanguageModels.json</span>
                         <span class="panel-header-badge hidden" id="modelCount"></span>
                     </div>
-                    <div class="panel-header-actions">
-                        <button class="panel-btn" onclick="copyToClipboard()" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                        <button class="panel-btn" onclick="download()" title="Download"><span class="material-symbols-outlined">download</span></button>
-                    </div>
                 </div>
                 <div class="panel-body" id="editorBody">
                     <div class="editor-empty" id="editorEmpty">
@@ -135,16 +131,6 @@
                         <span>Output will appear after conversion</span>
                     </div>
                     <div class="editor-content hidden" id="editorContent">
-                        <div class="editor-toolbar">
-                            <div class="editor-toolbar-left">
-                                <button class="editor-view-btn active" id="btnViewTree" onclick="switchView('tree')" title="Tree view"><span class="material-symbols-outlined">account_tree</span><span class="editor-view-label">Tree</span></button>
-                                <button class="editor-view-btn" id="btnViewJson" onclick="switchView('json')" title="Code view"><span class="material-symbols-outlined">data_object</span><span class="editor-view-label">Code</span></button>
-                            </div>
-                            <div class="editor-toolbar-right" id="editorToolbarRight">
-                                <button class="editor-view-btn" id="editBtn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)"><span class="material-symbols-outlined" id="editModeIcon">edit</span><span class="editor-view-label" id="editModeLabel">Edit</span></button>
-                                <button class="editor-view-btn" id="findReplaceBtn" onclick="toggleFindBar()" title="Find & Replace (Ctrl+H)"><span class="material-symbols-outlined">find_replace</span><span class="editor-view-label">Find</span></button>
-                            </div>
-                        </div>
                         <div id="aceEditor" class="hidden"></div>
                         <div class="tree-wrap" id="treeWrap">
                             <div class="tree-selbar hidden" id="treeSelBar">
@@ -286,7 +272,13 @@
                 <span class="pipe-text" data-i18n="pipe.install">Install</span>
             </button>
         </div>
-        <div class="pipebar-main" role="group" aria-label="Pipeline actions">
+        <!-- editor context actions (find/edit) — visible only in editor + code view -->
+        <div class="pipebar-context hidden" id="pipebarContext">
+            <button type="button" class="pipe-btn" id="findReplaceBtn" onclick="toggleFindBar()" title="Find &amp; Replace (Ctrl+H)"><span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">find_replace</span></span><span class="pipe-text" data-i18n="editor.find_replace">Find</span></button>
+            <button type="button" class="pipe-btn" id="editBtn" onclick="toggleEditMode()" title="Toggle edit mode (Ctrl+E)"><span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph" id="editModeIcon">edit</span></span><span class="pipe-text" id="editModeLabel" data-i18n="editor.edit">Edit</span></button>
+        </div>
+        <!-- HOME bar -->
+        <div class="pipebar-main" id="pipebarHome" role="group" aria-label="Pipeline actions">
             <button type="button" class="pipe-btn pipe-btn-accent" id="pipeAddBtn" onclick="switchPanel('form');addEndpoint()" data-i18n-title="pipe.add" title="Add Endpoint">
                 <span class="material-symbols-outlined pipe-glyph">add</span>
                 <span class="pipe-text" data-i18n="pipe.add">Add Endpoint</span>
@@ -295,7 +287,26 @@
                 <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">auto_awesome</span><span class="material-symbols-outlined pipe-check">check</span><span class="pipe-spinner" aria-hidden="true"></span></span>
                 <span class="pipe-text" data-i18n="pipe.generate">Generate</span>
             </button>
-            <button type="button" class="pipe-btn" id="pipeFieldsToggle" aria-expanded="false" aria-controls="pipebarFields" onclick="togglePipeFields()" data-i18n-title="pipe.fields_toggle" title="Output file &amp; install options">
+        </div>
+        <!-- EDITOR bar -->
+        <div class="pipebar-main hidden" id="pipebarEditor" role="group" aria-label="Editor actions">
+            <button type="button" class="pipe-btn active" id="btnViewTree" onclick="switchView('tree')" data-i18n-title="editor.tree" title="Tree view">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">account_tree</span></span>
+                <span class="pipe-text" data-i18n="editor.tree">Tree</span>
+            </button>
+            <button type="button" class="pipe-btn" id="btnViewJson" onclick="switchView(currentView === 'json' ? 'tree' : 'json')" data-i18n-title="editor.code" title="Code view">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">data_object</span></span>
+                <span class="pipe-text" data-i18n="editor.code">Code</span>
+            </button>
+            <button type="button" class="pipe-btn" id="edCopy" onclick="copyToClipboard()" data-i18n-title="editor.copy" title="Copy">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">content_copy</span></span>
+                <span class="pipe-text" data-i18n="editor.copy">Copy</span>
+            </button>
+            <button type="button" class="pipe-btn" id="edDownload" onclick="download()" data-i18n-title="editor.download" title="Download">
+                <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">download</span></span>
+                <span class="pipe-text" data-i18n="editor.download">Download</span>
+            </button>
+            <button type="button" class="pipe-btn" id="edSettingsToggle" aria-expanded="false" aria-controls="pipebarFields" onclick="togglePipeFields()" data-i18n-title="pipe.settings" title="Install options">
                 <span class="pipe-ic"><span class="material-symbols-outlined pipe-glyph">tune</span></span>
                 <span class="pipe-text" data-i18n="pipe.settings">Settings</span>
             </button>

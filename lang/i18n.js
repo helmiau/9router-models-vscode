@@ -28,7 +28,7 @@
     "editor.provider": "provider",
     "editor.title": "chatLanguageModels.json",
     "editor.tools": "tools",
-    "editor.tree": "Tree",
+    "editor.tree": "Tree", "editor.copy": "Copy", "editor.download": "Download",
     "editor.view": "View",
     "editor.vision": "vision",
     "endpoint.api_type_label": "API Type",

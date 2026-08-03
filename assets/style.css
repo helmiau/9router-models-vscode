@@ -1847,6 +1847,24 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     padding-bottom: env(safe-area-inset-bottom);
 }
 .pipebar-main { display: flex; align-items: center; gap: 4px; padding: 8px var(--spacing-2) 10px; }
+/* editor contextual row (find/edit) — appears above the bar in code view */
+.pipebar-context {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 4px var(--spacing-2);
+    border-top: 1px solid color-mix(in srgb, var(--color-border-emphasized) 40%, transparent);
+    background: color-mix(in srgb, var(--color-bg-card) 60%, transparent);
+}
+.pipebar-context .pipe-btn { flex: 1 1 0; }
+/* editor panel: install fields become a popover above the bar */
+body[data-panel="editor"] .pipebar-fields {
+    position: absolute; left: var(--spacing-2); right: var(--spacing-2);
+    bottom: calc(100% + 8px);
+    border: 1px solid var(--color-border-emphasized);
+    border-radius: var(--radius-container);
+    box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+    max-height: 55vh; overflow: auto;
+    z-index: 1410;
+}
 .pipebar-fields {
     display: grid; align-items: end;
     grid-template-columns: 150px minmax(0, 1fr);
@@ -1889,6 +1907,7 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
 .pipe-btn:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 2px; }
 .pipe-btn:active:not(:disabled) { transform: scale(0.96); }
 .pipe-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pipe-btn.active { background: var(--color-blue-muted); border-color: var(--color-blue); color: var(--color-blue); }
 .pipe-btn-accent { background: var(--color-blue); border-color: var(--color-blue); color: #fff; font-weight: 600; }
 .pipe-btn-accent:hover:not(:disabled) { filter: brightness(1.12); color: #fff; background: var(--color-blue); }
 .pipe-ic { position: relative; display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; }
@@ -1925,7 +1944,8 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     .pipebar-main { gap: 6px; }
     .pipe-btn { flex: 1 1 0; width: auto; justify-content: center; gap: 6px; padding: 0 8px; }
     .pipe-text { font-size: 0.72rem; }
-    .pipe-btn .pipe-ic { display: none; } /* ponytail: one row needs room; loading shows border+color */
+    .pipe-btn .pipe-ic { display: grid; } /* icon-only on narrow: labels hidden, icons shown */
+    .pipe-btn .pipe-text { display: none; }
     .pipe-field-grow { flex-basis: 100%; }
     /* fields stack single column on mobile */
     .pipebar-fields { grid-template-columns: 1fr; grid-template-areas: "output" "os" "install" "install-btn"; gap: var(--spacing-3); padding: var(--spacing-3); }
@@ -1940,8 +1960,6 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     /* full-width edge-to-edge like mobile — no floating dock */
     .pipebar-main { gap: var(--spacing-2); padding: 8px var(--spacing-3) 14px; }
     .pipe-btn { width: auto; flex: 1 1 0; justify-content: center; gap: 6px; padding: 0 8px; }
-    /* Generate is the primary action — wider than Add & Settings */
-    #pipeGenerateBtn { flex: 2 1 0; }
     /* sidebar drawer covers the bar on hover — shift content right so actions stay clickable */
     body:has(.sidebar.nav-open) .pipebar-main,
     body:has(.sidebar.nav-open) .pipebar-fields { padding-left: calc(min(280px, 85vw) + var(--spacing-3)); }
@@ -1949,4 +1967,6 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
 @media (min-width: 1024px) {
     /* desktop: fields auto-expand inline (tune toggle is for tablet/mobile) */
     .pipebar-fields.hidden { display: flex !important; }
+    /* editor panel: fields are a toggleable popover — honor hidden */
+    body[data-panel="editor"] .pipebar-fields.hidden { display: none !important; }
 }

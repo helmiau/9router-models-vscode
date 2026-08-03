@@ -72,6 +72,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "Arborescence",
   "editor.code": "Code",
+  "editor.copy": "Copier",
+  "editor.download": "Télécharger",
   "editor.edit": "Modifier",
   "editor.view": "Voir",
   "editor.find_replace": "Rechercher & Remplacer",

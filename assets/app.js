@@ -128,6 +128,19 @@ function switchPanel(name) {
             if (visibleIcon) animateIcon(visibleIcon, 'icon-bounce');
         }
     });
+    /* contextual bottom bar: editor panel swaps actions */
+    document.body.dataset.panel = name;
+    const home = $('pipebarHome'), ed = $('pipebarEditor');
+    if (home) home.classList.toggle('hidden', name === 'editor');
+    if (ed) ed.classList.toggle('hidden', name !== 'editor');
+    const ctx = $('pipebarContext');
+    /* find/edit row lives only in editor + code view — hide everywhere else */
+    if (ctx) ctx.classList.toggle('hidden', name !== 'editor' || currentView !== 'json');
+    if (name === 'editor') {
+        const f = $('pipebarFields');
+        if (f && !f.classList.contains('hidden')) togglePipeFields(false);
+    }
+    syncPipebarSpace();
     log('action', `Switched to ${name} panel`);
     closeMobileNav();
 }
@@ -337,9 +350,10 @@ function switchView(view) {
     currentView = view;
     const wrap = $('treeWrap');
     const aceEl = $('aceEditor');
-    const rightBar = $('editorToolbarRight');
+    const ctx = $('pipebarContext');
     $('btnViewTree').classList.toggle('active', view === 'tree');
     $('btnViewJson').classList.toggle('active', view === 'json');
+    if (ctx) ctx.classList.toggle('hidden', view !== 'json');
     if (view === 'tree') {
         /* code edits made in Ace → re-sync tree from editor content */
         if (aceEl && !aceEl.classList.contains('hidden') && aceEditor) {
@@ -356,13 +370,12 @@ function switchView(view) {
         }
         if (wrap) wrap.style.display = 'flex';
         if (aceEl) aceEl.classList.add('hidden');
-        if (rightBar) rightBar.style.display = 'none';
         closeFindBar();
     } else {
         if (wrap) wrap.style.display = 'none';
         if (aceEl) aceEl.classList.remove('hidden');
-        if (rightBar) rightBar.style.display = 'flex';
     }
+    syncPipebarSpace();
 }
 
 function treeToggleId() { return 'tn_' + (++treeIdCounter); }
@@ -1863,14 +1876,13 @@ function togglePipeFields(force) {
     const fields = $('pipebarFields');
     if (!fields) return;
     /* desktop: fields always open — toggle is for tablet/mobile only */
-    if (typeof force !== 'boolean' && window.innerWidth >= 1024) return;
+    if (typeof force !== 'boolean' && window.innerWidth >= 1024 && document.body.dataset.panel !== 'editor') return;
     const open = typeof force === 'boolean' ? force : fields.classList.contains('hidden');
     fields.classList.toggle('hidden', !open);
-    const t = $('pipeFieldsToggle');
-    if (t) t.setAttribute('aria-expanded', String(open));
+    document.querySelectorAll('[aria-controls="pipebarFields"]').forEach(b => b.setAttribute('aria-expanded', String(open)));
     syncPipebarSpace();
     /* desktop auto-open is not a user choice — don't persist it across sizes */
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < 1024 && document.body.dataset.panel !== 'editor') {
         try {
             const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
             localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, fields: open }));
@@ -1902,14 +1914,16 @@ function pipeOsChanged() {
     if (!bar) return;
     try {
         const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
-        if (s.fields || window.innerWidth >= 1024) togglePipeFields(true);
+        if ((s.fields || window.innerWidth >= 1024) && document.body.dataset.panel !== 'editor') togglePipeFields(true);
     } catch {}
     pipeOsChanged();
     syncPipebarSpace();
     window.addEventListener('resize', () => {
         syncPipebarSpace();
         /* keep fields expanded when crossing into desktop; restore user state below */
-        if (window.innerWidth >= 1024) {
+        if (document.body.dataset.panel === 'editor') {
+            togglePipeFields(false);
+        } else if (window.innerWidth >= 1024) {
             togglePipeFields(true);
         } else {
             const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');

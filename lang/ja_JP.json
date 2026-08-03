@@ -72,6 +72,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "ツリー",
   "editor.code": "コード",
+  "editor.copy": "コピー",
+  "editor.download": "ダウンロード",
   "editor.edit": "編集",
   "editor.view": "表示",
   "editor.find_replace": "検索と置換",

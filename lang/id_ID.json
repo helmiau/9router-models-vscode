@@ -73,6 +73,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "Pohon",
   "editor.code": "Kode",
+  "editor.copy": "Salin",
+  "editor.download": "Unduh",
   "editor.edit": "Sunting",
   "editor.view": "Lihat",
   "editor.find_replace": "Cari & Ganti",

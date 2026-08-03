@@ -72,6 +72,8 @@
   "editor.title": "chatLanguageModels.json",
   "editor.tree": "树形",
   "editor.code": "代码",
+  "editor.copy": "复制",
+  "editor.download": "下载",
   "editor.edit": "编辑",
   "editor.view": "查看",
   "editor.find_replace": "查找与替换",
