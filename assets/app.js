@@ -1700,36 +1700,25 @@ async function pipeInstall(btn) {
     });
 }
 
-// --- Pipe bar: show/hide + fields (output file / install location / OS) ---
-
-function togglePipeBar(force) {
-    const bar = $('pipebar');
-    if (!bar) return;
-    const collapsed = typeof force === 'boolean' ? force : !bar.classList.contains('collapsed');
-    bar.classList.toggle('collapsed', collapsed);
-    document.body.classList.toggle('pipebar-collapsed', collapsed);
-    const c = $('pipeCollapse');
-    if (c) c.setAttribute('aria-expanded', String(!collapsed));
-    syncPipebarSpace();
-    try {
-        const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
-        localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, collapsed }));
-    } catch {}
-    return collapsed;
-}
+// --- Pipe bar: fields (output file / install location / OS) ---
 
 function togglePipeFields(force) {
     const fields = $('pipebarFields');
     if (!fields) return;
+    /* desktop: fields always open — toggle is for tablet/mobile only */
+    if (typeof force !== 'boolean' && window.innerWidth >= 1024) return;
     const open = typeof force === 'boolean' ? force : fields.classList.contains('hidden');
     fields.classList.toggle('hidden', !open);
     const t = $('pipeFieldsToggle');
     if (t) t.setAttribute('aria-expanded', String(open));
     syncPipebarSpace();
-    try {
-        const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
-        localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, fields: open }));
-    } catch {}
+    /* desktop auto-open is not a user choice — don't persist it across sizes */
+    if (window.innerWidth < 1024) {
+        try {
+            const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
+            localStorage.setItem('9router_pipebar', JSON.stringify({ ...s, fields: open }));
+        } catch {}
+    }
     return open;
 }
 
@@ -1756,12 +1745,20 @@ function pipeOsChanged() {
     if (!bar) return;
     try {
         const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
-        if (s.collapsed) togglePipeBar(true);
-        if (s.fields) togglePipeFields(true);
+        if (s.fields || window.innerWidth >= 1024) togglePipeFields(true);
     } catch {}
     pipeOsChanged();
     syncPipebarSpace();
-    window.addEventListener('resize', syncPipebarSpace);
+    window.addEventListener('resize', () => {
+        syncPipebarSpace();
+        /* keep fields expanded when crossing into desktop; restore user state below */
+        if (window.innerWidth >= 1024) {
+            togglePipeFields(true);
+        } else {
+            const s = JSON.parse(localStorage.getItem('9router_pipebar') || '{}');
+            togglePipeFields(!!s.fields);
+        }
+    });
 })();
 
 // --- Download scripts ---

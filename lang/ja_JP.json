@@ -17,7 +17,7 @@
   "reset.update_lib_desc": "Ace と Web ライブラリを再取得。データは保持。",
   "reset.clean_all": "消去",
   "reset.clean_all_desc": "保存したエンドポイント・データ・Webキャッシュをすべて削除。",
-  "pipe.add": "エンドポイント追加", "pipe.fetch": "取得", "pipe.merge": "結合", "pipe.generate": "生成", "pipe.install": "インストール", "pipe.fields_toggle": "出力ファイルとインストールオプション", "pipe.hide": "非表示", "pipe.show": "表示", "pipe.output_label": "出力ファイル名", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "インストール先", "pipe.target_placeholder": "空欄 = 既定のVS Codeユーザーディレクトリ", "pipe.os_label": "OS", "pipe.os_auto": "自動", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "自動（サーバーが検出）", "pipe.os_placeholder_windows": "C:\\Users\\<you>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
+  "pipe.add": "エンドポイント追加", "pipe.fetch": "取得", "pipe.merge": "結合", "pipe.generate": "生成", "pipe.install": "インストール", "pipe.settings": "設定", "pipe.fields_toggle": "出力ファイルとインストールオプション", "pipe.hide": "非表示", "pipe.show": "表示", "pipe.output_label": "出力ファイル名", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "インストール先", "pipe.target_placeholder": "空欄 = 既定のVS Codeユーザーディレクトリ", "pipe.os_label": "OS", "pipe.os_auto": "自動", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "自動（サーバーが検出）", "pipe.os_placeholder_windows": "C:\\Users\\<you>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
   "topbar.refresh": "更新してキャッシュを削除",
   "sidebar.collapse": "折りたたむ",
   "sidebar.title.home": "ホーム",

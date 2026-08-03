@@ -17,7 +17,7 @@
   "reset.update_lib_desc": "重新获取 Ace 及网络库。数据保留。",
   "reset.clean_all": "清理",
   "reset.clean_all_desc": "清除所有已保存的端点、数据与网络缓存。",
-  "pipe.add": "添加端点", "pipe.fetch": "获取", "pipe.merge": "合并", "pipe.generate": "生成", "pipe.install": "安装", "pipe.fields_toggle": "输出文件和安装选项", "pipe.hide": "隐藏", "pipe.show": "显示", "pipe.output_label": "输出文件名", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "安装位置", "pipe.target_placeholder": "留空 = 默认 VS Code 用户目录", "pipe.os_label": "系统", "pipe.os_auto": "自动", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "自动（由服务器检测）", "pipe.os_placeholder_windows": "C:\\Users\\<you>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
+  "pipe.add": "添加端点", "pipe.fetch": "获取", "pipe.merge": "合并", "pipe.generate": "生成", "pipe.install": "安装", "pipe.settings": "设置", "pipe.fields_toggle": "输出文件和安装选项", "pipe.hide": "隐藏", "pipe.show": "显示", "pipe.output_label": "输出文件名", "pipe.output_placeholder": "chatLanguageModels.json", "pipe.target_label": "安装位置", "pipe.target_placeholder": "留空 = 默认 VS Code 用户目录", "pipe.os_label": "系统", "pipe.os_auto": "自动", "pipe.os_windows": "Windows", "pipe.os_macos": "macOS", "pipe.os_linux": "Linux", "pipe.os_placeholder_auto": "自动（由服务器检测）", "pipe.os_placeholder_windows": "C:\\Users\\<you>\\AppData\\Roaming\\Code\\User", "pipe.os_placeholder_macos": "~/Library/Application Support/Code/User", "pipe.os_placeholder_linux": "~/.config/Code/User",
   "topbar.refresh": "刷新并清除缓存",
   "sidebar.collapse": "收起",
   "sidebar.title.home": "首页",
