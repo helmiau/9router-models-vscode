@@ -19,6 +19,32 @@ Designed for OpenAI/Anthropic-compatible proxies such as:
 - [SwitchIt](https://github.com/xirf/switchit)
 - Any OpenAI/Anthropic-compatible endpoint
 
+## Features
+
+- Multi-endpoint batch fetch & merge
+- Individual endpoint fetch
+- Endpoint config saved to localStorage
+- API Type selector (Chat / Responses / Messages)
+- Three source modes: URL, Paste, Upload
+- Fetch URL override (bypass localhost CORS)
+- Secret auto-generation
+- App mode (`--app`) — same-origin proxy
+- WebSocket relay
+- HTTP CORS proxy
+- One-click copy/paste fields
+- Collapsible endpoint rows
+- Downloadable fetch scripts (py/bat/sh)
+- Tree & Code editor views (Ace.js)
+- Tree view: multi-select models, batch delete, batch edit, inline value editing
+- Code ↔ Tree sync (edits in code editor reflected in tree)
+- Find & Replace with regex
+- JSON formatting
+- Schema-aware autocomplete
+- Activity log panel
+- Collapsible panels
+- Dark/Light theme
+- i18n: English & Indonesian
+
 ## Quick Start
 
 1. **Add an endpoint.** Enter the API base URL and authentication key.
@@ -121,30 +147,6 @@ Normalized automatically:
 | Linux | `~/.config/Code/User/` |
 
 Restart VS Code after placing file.
-
-## Features
-
-- Multi-endpoint batch fetch & merge
-- Individual endpoint fetch
-- Endpoint config saved to localStorage
-- API Type selector (Chat / Responses / Messages)
-- Three source modes: URL, Paste, Upload
-- Fetch URL override (bypass localhost CORS)
-- Secret auto-generation
-- App mode (`--app`) — same-origin proxy
-- WebSocket relay
-- HTTP CORS proxy
-- One-click copy/paste fields
-- Collapsible endpoint rows
-- Downloadable fetch scripts (py/bat/sh)
-- Tree & Code editor views (Ace.js)
-- Find & Replace with regex
-- JSON formatting
-- Schema-aware autocomplete
-- Activity log panel
-- Collapsible panels
-- Dark/Light theme
-- i18n: English & Indonesian
 
 ## How It Works
 

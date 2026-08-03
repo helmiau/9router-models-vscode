@@ -1921,28 +1921,20 @@ code, .paste-area, .tree-view, .log-body, .curl-box code,
     .pipe-btn[data-state="error"] { animation: none; }
 }
 @media (max-width: 640px) {
-    /* edge-to-edge, evenly distributed actions; labels always visible */
-    .pipebar-main { flex-wrap: wrap; row-gap: 6px; }
+    /* always one row: hide icons, equal widths, no wrap */
+    .pipebar-main { gap: 6px; }
     .pipe-btn { flex: 1 1 0; width: auto; justify-content: center; gap: 6px; padding: 0 8px; }
-    /* Generate is the primary action — wider than Add & Settings */
-    #pipeGenerateBtn { flex: 2 1 0; }
-    .pipe-icon-btn { flex: 0 0 44px; }
     .pipe-text { font-size: 0.72rem; }
+    .pipe-btn .pipe-ic { display: none; } /* ponytail: one row needs room; loading shows border+color */
     .pipe-field-grow { flex-basis: 100%; }
     /* fields stack single column on mobile */
     .pipebar-fields { grid-template-columns: 1fr; grid-template-areas: "output" "os" "install" "install-btn"; gap: var(--spacing-3); padding: var(--spacing-3); }
 }
 @media (max-width: 480px) {
-    /* phones: two-tier grid — labeled pills row + icon row */
-    .pipebar-main {
-        display: grid;
-        grid-template-columns: 1fr 1.5fr;
-        grid-template-areas: "add generate" "settings .";
-    }
-    #pipeAddBtn { grid-area: add; }
-    #pipeGenerateBtn { grid-area: generate; }
-    #pipeFieldsToggle { grid-area: settings; }
-    .pipe-btn .pipe-ic { display: none; } /* ponytail: icon+label can't fit <450px; loading still shows border+color */
+    /* extra compression so all three labels fit one row */
+    .pipebar-main { gap: 4px; }
+    .pipe-btn { gap: 4px; padding: 0 6px; }
+    .pipe-text { font-size: 0.68rem; }
 }
 @media (min-width: 641px) {
     /* full-width edge-to-edge like mobile — no floating dock */
